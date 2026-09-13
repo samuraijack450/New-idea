@@ -1,0 +1,1309 @@
+<!doctype html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neyron Laboratoriyası</title>
+<meta name="description" content="Neyron şəbəkənin necə işlədiyini barmağınla oynadaraq öyrən — canlı, brauzerdə işləyən interaktiv laboratoriya.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* ------------------------------------------------------------------
+   Design tokens.
+   Light palette lives on bare :root so it applies in the un-stamped
+   (system) state; dark redefines only the token values.
+   ------------------------------------------------------------------ */
+:root {
+  --paper:      #eef1f4;
+  --surface:    #ffffff;
+  --surface-2:  #f6f8fa;
+  --ink:        #101a22;
+  --muted:      #55697a;
+  --faint:      #8497a6;
+  --rule:       #d3dce4;
+  --grid-rgb:   150 170 186;
+
+  --signal:     #0c7c92;
+  --signal-dim: #cfe9ef;
+
+  --class-a:      #0f766e;
+  --class-a-rgb:  15 118 110;
+  --class-b:      #c2660a;
+  --class-b-rgb:  194 102 10;
+
+  --ok:  #0f766e;
+  --bad: #b4390d;
+
+  --shadow: 0 1px 2px rgb(16 26 34 / .06), 0 8px 24px -12px rgb(16 26 34 / .18);
+
+  --sans: "IBM Plex Sans", "Noto Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", "Noto Sans Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --step--1: clamp(.75rem, .72rem + .15vw, .82rem);
+  --step-0:  clamp(.95rem, .91rem + .2vw, 1.02rem);
+  --step-1:  clamp(1.15rem, 1.08rem + .34vw, 1.35rem);
+  --step-2:  clamp(1.45rem, 1.3rem + .72vw, 1.95rem);
+  --step-3:  clamp(1.9rem, 1.6rem + 1.5vw, 2.9rem);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:      #0b1217;
+    --surface:    #121c23;
+    --surface-2:  #182430;
+    --ink:        #e4edf4;
+    --muted:      #93a8b8;
+    --faint:      #6a8092;
+    --rule:       #23323d;
+    --grid-rgb:   80 104 122;
+
+    --signal:     #2fd3ee;
+    --signal-dim: #143b46;
+
+    --class-a:      #5eead4;
+    --class-a-rgb:  94 234 212;
+    --class-b:      #f8a723;
+    --class-b-rgb:  248 167 35;
+
+    --ok:  #5eead4;
+    --bad: #fb8b60;
+
+    --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 10px 30px -14px rgb(0 0 0 / .7);
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper:      #0b1217;
+  --surface:    #121c23;
+  --surface-2:  #182430;
+  --ink:        #e4edf4;
+  --muted:      #93a8b8;
+  --faint:      #6a8092;
+  --rule:       #23323d;
+  --grid-rgb:   80 104 122;
+
+  --signal:     #2fd3ee;
+  --signal-dim: #143b46;
+
+  --class-a:      #5eead4;
+  --class-a-rgb:  94 234 212;
+  --class-b:      #f8a723;
+  --class-b-rgb:  248 167 35;
+
+  --ok:  #5eead4;
+  --bad: #fb8b60;
+
+  --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 10px 30px -14px rgb(0 0 0 / .7);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--step-0);
+  line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
+}
+
+.wrap {
+  max-width: 720px;
+  margin-inline: auto;
+  padding-inline: 18px;
+  padding-block: 40px 64px;
+}
+
+/* ---------- masthead ---------- */
+.mast { margin-bottom: 40px; }
+.mast__tag {
+  font-family: var(--mono);
+  font-size: var(--step--1);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--signal);
+  margin: 0 0 12px;
+}
+.mast h1 {
+  font-size: var(--step-3);
+  line-height: 1.04;
+  letter-spacing: -.025em;
+  font-weight: 700;
+  margin: 0 0 14px;
+  text-wrap: balance;
+}
+.mast p {
+  margin: 0;
+  color: var(--muted);
+  max-width: 54ch;
+}
+
+/* ---------- section shell ---------- */
+.step {
+  border-top: 1px solid var(--rule);
+  padding-top: 26px;
+  margin-top: 46px;
+}
+.step__no {
+  font-family: var(--mono);
+  font-size: var(--step--1);
+  font-weight: 600;
+  letter-spacing: .16em;
+  color: var(--faint);
+  margin: 0 0 6px;
+}
+.step h2 {
+  font-size: var(--step-2);
+  line-height: 1.15;
+  letter-spacing: -.02em;
+  font-weight: 600;
+  margin: 0 0 12px;
+  text-wrap: balance;
+}
+.lede { color: var(--muted); margin: 0 0 22px; max-width: 56ch; }
+
+/* ---------- instrument panel ---------- */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.field { position: relative; }
+.field canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  max-width: 100%;
+  border-radius: 6px;
+  background: var(--surface-2);
+  touch-action: none;          /* tapping the field must not scroll the page */
+  cursor: crosshair;
+}
+.field__hint {
+  font-family: var(--mono);
+  font-size: var(--step--1);
+  color: var(--faint);
+  margin: 8px 0 0;
+  text-align: center;
+}
+
+/* ---------- neuron diagram ---------- */
+.diagram { width: 100%; height: auto; display: block; overflow: visible; }
+.diagram text { font-family: var(--mono); font-size: 12px; fill: var(--muted); }
+.diagram .node-label { fill: var(--ink); font-weight: 500; font-size: 13px; }
+
+/* ---------- controls ---------- */
+.dials { display: flex; flex-direction: column; gap: 12px; }
+.dial { display: grid; grid-template-columns: 2.6rem 1fr 3.6rem; align-items: center; gap: 10px; }
+.dial__name { font-family: var(--mono); font-size: var(--step--1); color: var(--muted); }
+.dial__val {
+  font-family: var(--mono);
+  font-size: var(--step--1);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 26px; margin: 0; background: transparent; cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px; border-radius: 2px; background: var(--rule);
+}
+input[type="range"]::-moz-range-track {
+  height: 3px; border-radius: 2px; background: var(--rule);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 22px; height: 22px; margin-top: -9.5px; border-radius: 50%;
+  background: var(--signal); border: 3px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--signal);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--signal); border: 3px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--signal);
+}
+input[type="range"]:focus-visible { outline: 2px solid var(--signal); outline-offset: 4px; border-radius: 4px; }
+
+.btnrow { display: flex; flex-wrap: wrap; gap: 8px; }
+button {
+  font-family: var(--sans);
+  font-size: var(--step--1);
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: 7px;
+  padding: 9px 15px;
+  min-height: 42px;
+  cursor: pointer;
+}
+button:hover { border-color: var(--faint); }
+button:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+button[data-primary] {
+  background: var(--signal); border-color: var(--signal);
+  color: var(--surface); font-weight: 600;
+}
+button[aria-pressed="true"] {
+  background: var(--signal-dim); border-color: var(--signal); color: var(--ink);
+}
+
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button { padding: 7px 12px; min-height: 38px; }
+
+.swatch {
+  display: inline-block; width: .62em; height: .62em; border-radius: 2px;
+  margin-right: .4em; vertical-align: baseline;
+}
+.swatch--a { background: var(--class-a); }
+.swatch--b { background: var(--class-b); }
+
+/* ---------- readouts ---------- */
+.readout {
+  font-family: var(--mono);
+  font-size: var(--step--1);
+  font-variant-numeric: tabular-nums;
+  background: var(--surface-2);
+  border-radius: 7px;
+  padding: 12px 13px;
+  display: flex; flex-direction: column; gap: 5px;
+  overflow-x: auto;
+}
+.readout__line { white-space: nowrap; color: var(--muted); }
+.readout__line b { color: var(--ink); font-weight: 600; }
+.readout__line .pos { color: var(--signal); }
+.readout__line .neg { color: var(--class-b); }
+
+.stats { display: flex; flex-wrap: wrap; gap: 6px 20px; }
+.stat { display: flex; flex-direction: column; gap: 1px; }
+.stat__k {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--faint);
+}
+.stat__v {
+  font-family: var(--mono); font-size: 1.05rem; font-weight: 600;
+  font-variant-numeric: tabular-nums; color: var(--ink);
+}
+.stat__v[data-tone="ok"]  { color: var(--ok); }
+.stat__v[data-tone="bad"] { color: var(--bad); }
+
+.spark { display: block; width: 100%; height: 54px; }
+
+/* ---------- hidden-neuron thumbnails ---------- */
+.thumbs { display: flex; flex-wrap: wrap; gap: 10px; }
+.thumb { display: flex; flex-direction: column; gap: 4px; width: 66px; }
+.thumb canvas {
+  width: 66px; height: 66px; display: block;
+  border-radius: 4px; border: 1px solid var(--rule); background: var(--surface-2);
+}
+.thumb span {
+  font-family: var(--mono); font-size: 10px; color: var(--faint);
+  font-variant-numeric: tabular-nums; text-align: center;
+}
+.thumbs__empty { font-family: var(--mono); font-size: var(--step--1); color: var(--faint); }
+
+/* ---------- explanation ---------- */
+.note {
+  margin-top: 22px;
+  border-left: 2px solid var(--signal);
+  padding: 2px 0 2px 16px;
+}
+.note h3 {
+  font-size: var(--step-0); font-weight: 600; margin: 0 0 8px;
+  letter-spacing: -.005em;
+}
+.note p { margin: 0 0 10px; color: var(--muted); max-width: 56ch; }
+.note p:last-child { margin-bottom: 0; }
+.note strong { color: var(--ink); font-weight: 600; }
+.note code {
+  font-family: var(--mono); font-size: .9em;
+  background: var(--surface-2); padding: .1em .35em; border-radius: 3px; color: var(--ink);
+}
+.note ol { margin: 0 0 10px; padding-left: 1.15rem; color: var(--muted); max-width: 56ch; }
+.note li { margin-bottom: 4px; }
+.note li::marker { font-family: var(--mono); color: var(--signal); }
+
+/* ---------- footer ---------- */
+.end {
+  border-top: 1px solid var(--rule);
+  margin-top: 52px; padding-top: 24px;
+}
+.end h2 { font-size: var(--step-1); font-weight: 600; margin: 0 0 10px; }
+.end p { color: var(--muted); margin: 0 0 10px; max-width: 56ch; }
+
+/* ---------- wide screens ---------- */
+@media (min-width: 600px) {
+  .panel--split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 18px;
+  }
+  .panel--split > .span { grid-column: 1 / -1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="mast">
+    <p class="mast__tag">Canlı laboratoriya</p>
+    <h1>Neyron Laboratoriyası</h1>
+    <p>Neyron şəbəkənin necə işlədiyini oxuyaraq deyil, barmağınla oynadaraq öyrən. Bu səhifədəki hər şey canlıdır — riyaziyyat elə indi, sənin telefonunda işləyir. Heç bir hazır süni intellekt kitabxanası yoxdur; şəbəkə sıfırdan yazılıb.</p>
+  </header>
+
+  <!-- ============================== 1 ============================== -->
+  <section class="step" id="s1">
+    <p class="step__no">01 — ANATOMİYA</p>
+    <h2>Neyron nədir?</h2>
+    <p class="lede">Süni neyron beyin hüceyrəsi deyil. O, cəmi üç iş görən kiçik bir düsturdur: <strong>vur</strong>, <strong>topla</strong>, <strong>sıxışdır</strong>. Aşağıdakı sürgüləri çək və çıxışın necə dəyişdiyinə bax.</p>
+
+    <div class="panel panel--split">
+      <svg class="diagram span" id="d1" viewBox="0 0 320 150" role="img" aria-label="Bir neyronun sxemi: iki giriş, çəkilər, toplama və sıxışdırma">
+        <g id="d1-edges" fill="none" stroke-linecap="round">
+          <line id="e1" x1="48" y1="40" x2="150" y2="75"></line>
+          <line id="e2" x1="48" y1="110" x2="150" y2="75"></line>
+          <line id="e3" x1="186" y1="75" x2="276" y2="75" stroke="currentColor" stroke-width="2"></line>
+        </g>
+        <circle cx="36" cy="40" r="15" fill="var(--surface-2)" stroke="var(--rule)"></circle>
+        <circle cx="36" cy="110" r="15" fill="var(--surface-2)" stroke="var(--rule)"></circle>
+        <circle cx="168" cy="75" r="20" fill="var(--surface-2)" stroke="var(--signal)" stroke-width="2"></circle>
+        <circle cx="290" cy="75" r="15" fill="var(--surface-2)" stroke="var(--rule)"></circle>
+        <text class="node-label" x="36" y="45" text-anchor="middle" id="d1-x1">x₁</text>
+        <text class="node-label" x="36" y="115" text-anchor="middle" id="d1-x2">x₂</text>
+        <text class="node-label" x="168" y="80" text-anchor="middle">Σ σ</text>
+        <text class="node-label" x="290" y="80" text-anchor="middle" id="d1-y">y</text>
+        <text x="95" y="45" text-anchor="middle" id="d1-w1">w₁</text>
+        <text x="95" y="107" text-anchor="middle" id="d1-w2">w₂</text>
+        <text x="168" y="118" text-anchor="middle" id="d1-b">b</text>
+        <text x="36" y="20" text-anchor="middle">giriş</text>
+        <text x="36" y="140" text-anchor="middle">giriş</text>
+        <text x="290" y="105" text-anchor="middle">çıxış</text>
+      </svg>
+
+      <div class="field">
+        <canvas id="c1" aria-label="Neyronun qərar sahəsi. Nöqtəni sürüşdürərək girişi dəyişə bilərsən."></canvas>
+        <p class="field__hint">↑ Nöqtəni sürüşdür — bu, girişdir</p>
+      </div>
+
+      <div class="dials">
+        <div class="dial">
+          <label class="dial__name" for="w1">w₁</label>
+          <input type="range" id="w1" min="-2" max="2" step="0.05" value="1.1">
+          <span class="dial__val" id="w1v">1.10</span>
+        </div>
+        <div class="dial">
+          <label class="dial__name" for="w2">w₂</label>
+          <input type="range" id="w2" min="-2" max="2" step="0.05" value="0.75">
+          <span class="dial__val" id="w2v">0.75</span>
+        </div>
+        <div class="dial">
+          <label class="dial__name" for="b1">b</label>
+          <input type="range" id="b1" min="-2" max="2" step="0.05" value="-0.2">
+          <span class="dial__val" id="b1v">−0.20</span>
+        </div>
+      </div>
+
+      <div class="readout span" id="r1">
+        <div class="readout__line">z = w₁·x₁ + w₂·x₂ + b</div>
+        <div class="readout__line" id="r1-sum"></div>
+        <div class="readout__line" id="r1-out"></div>
+      </div>
+    </div>
+
+    <div class="note">
+      <h3>Burada nə baş verir?</h3>
+      <p>Neyron hər girişi öz <strong>çəkisinə</strong> (<code>w</code> — weight) vurur, hamısını toplayır, üstünə <strong>sürüşməni</strong> (<code>b</code> — bias) əlavə edir. Çəki həmin girişin nə qədər vacib olduğunu, sürüşmə isə qərarın nə qədər asan verildiyini bildirir.</p>
+      <p>Sonuncu addım <code>σ</code> (siqmoid) funksiyasıdır: istənilən rəqəmi <strong>0 ilə 1 arasına</strong> sıxışdırır. Çıxış 0.9-dursa neyron “hə, əminəm”, 0.1-dirsə “yox” deyir. 0.5 isə “bilmirəm” — və kvadratdakı <strong>xətt</strong> məhz bu 0.5 sərhədidir.</p>
+      <p>İndi bir şeyə diqqət et: sürgüləri necə çəksən də, xətt həmişə <strong>düz</strong> qalır. Bir neyron əyri çəkə bilmir. Bunu yadda saxla — 3-cü addımda bütün məsələ bunun üstündə qurulacaq.</p>
+    </div>
+  </section>
+
+  <!-- ============================== 2 ============================== -->
+  <section class="step" id="s2">
+    <p class="step__no">02 — ÖYRƏNMƏ</p>
+    <h2>Öyrənmə nədir?</h2>
+    <p class="lede">Yuxarıda çəkiləri sən əlinlə tapdın. İndi kompüter özü tapsın. <strong>Öyrət</strong> düyməsini bas və xəttin yerinə oturduğunu izlə — və eyni anda <code>w₁ w₂ b</code> rəqəmlərinin öz-özünə dəyişdiyinə bax.</p>
+
+    <div class="panel">
+      <div class="field">
+        <canvas id="c2" aria-label="İki qrup nöqtə və neyronun çəkdiyi sərhəd xətti. Toxunaraq yeni nöqtə əlavə et."></canvas>
+        <p class="field__hint">↑ Toxun və yeni nöqtə əlavə et</p>
+      </div>
+
+      <div class="seg" role="group" aria-label="Əlavə ediləcək nöqtənin qrupu">
+        <button type="button" id="p2a" aria-pressed="true"><span class="swatch swatch--a"></span>A qrupu</button>
+        <button type="button" id="p2b" aria-pressed="false"><span class="swatch swatch--b"></span>B qrupu</button>
+      </div>
+
+      <div class="btnrow">
+        <button type="button" id="run2" data-primary>Öyrət</button>
+        <button type="button" id="reset2">Sıfırla</button>
+        <button type="button" id="clear2">Nöqtələri sil</button>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><span class="stat__k">Addım</span><span class="stat__v" id="st2-step">0</span></div>
+        <div class="stat"><span class="stat__k">İtki</span><span class="stat__v" id="st2-loss">—</span></div>
+        <div class="stat"><span class="stat__k">Dəqiqlik</span><span class="stat__v" id="st2-acc">—</span></div>
+      </div>
+
+      <canvas class="spark" id="sp2" aria-label="İtki əyrisi — öyrənmə boyunca səhvin necə azaldığı"></canvas>
+
+      <div class="readout" id="r2">
+        <div class="readout__line" id="r2-w"></div>
+      </div>
+    </div>
+
+    <div class="note">
+      <h3>“Öyrənmə” əslində nədir?</h3>
+      <p>Cəmi dörd addım — və bu dörd addım milyonlarla dəfə təkrarlanır. Bütün süni intellekt bundan ibarətdir:</p>
+      <ol>
+        <li><strong>Təxmin et.</strong> Hər nöqtə üçün neyron 0–1 arası rəqəm çıxarır.</li>
+        <li><strong>Səhvi ölç.</strong> Təxmin düzgün cavabdan nə qədər uzaqdır? Bu rəqəmə <strong>itki</strong> (loss) deyilir.</li>
+        <li><strong>Günahkarı tap.</strong> Hansı çəki bu səhvə nə qədər töhfə verdi? Bunu hesablamağa <strong>qradiyent</strong> deyilir.</li>
+        <li><strong>Düzəlt.</strong> Hər çəkini səhvi azaldan istiqamətdə çox az sürüşdür. Sonra 1-ci addıma qayıt.</li>
+      </ol>
+      <p>Yuxarıdakı <strong>itki əyrisi</strong> aşağı düşürsə — model öyrənir. Düz qalıbsa — ya öyrənəcək bir şey yoxdur, ya da model bacarmır. Növbəti addımda məhz “bacarmır” halını görəcəyik.</p>
+      <p>Sınaq üçün: kvadratın içində A qrupunun ortasına bir neçə B nöqtəsi qoy və yenidən öyrət. Xətt onları ayıra bilməyəcək — çünki hələ də <strong>düz xətdir</strong>.</p>
+    </div>
+  </section>
+
+  <!-- ============================== 3 ============================== -->
+  <section class="step" id="s3">
+    <p class="step__no">03 — DƏRİNLİK</p>
+    <h2>Niyə “dərin” öyrənmə?</h2>
+    <p class="lede">Əvvəlcə <strong>Dairə</strong> formasını seç, gizli neyron sayını <strong>0</strong> qoy və öyrət. Bacarmayacaq. Sonra neyron sayını artır — və nə baş verdiyini izlə.</p>
+
+    <div class="panel">
+      <div class="field">
+        <canvas id="c3" aria-label="Şəbəkənin qərar sahəsi. Toxunaraq yeni nöqtə əlavə et."></canvas>
+        <p class="field__hint">↑ Toxun və yeni nöqtə əlavə et</p>
+      </div>
+
+      <div class="seg" role="group" aria-label="Məlumat forması">
+        <button type="button" data-set="blobs" aria-pressed="false">İki topa</button>
+        <button type="button" data-set="circle" aria-pressed="true">Dairə</button>
+        <button type="button" data-set="xor" aria-pressed="false">XOR</button>
+        <button type="button" data-set="spiral" aria-pressed="false">Spiral</button>
+      </div>
+
+      <div class="dial">
+        <label class="dial__name" for="h3">gizli</label>
+        <input type="range" id="h3" min="0" max="8" step="1" value="0">
+        <span class="dial__val" id="h3v">0</span>
+      </div>
+
+      <div class="btnrow">
+        <button type="button" id="run3" data-primary>Öyrət</button>
+        <button type="button" id="reset3">Sıfırla</button>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><span class="stat__k">Addım</span><span class="stat__v" id="st3-step">0</span></div>
+        <div class="stat"><span class="stat__k">İtki</span><span class="stat__v" id="st3-loss">—</span></div>
+        <div class="stat"><span class="stat__k">Dəqiqlik</span><span class="stat__v" id="st3-acc">—</span></div>
+      </div>
+
+      <canvas class="spark" id="sp3" aria-label="İtki əyrisi"></canvas>
+
+      <div>
+        <p class="stat__k" style="margin:0 0 8px">Hər gizli neyron ayrılıqda nə görür</p>
+        <div class="thumbs" id="th3"><span class="thumbs__empty">Gizli neyron yoxdur — şəbəkə yalnız bir düz xətt çəkir.</span></div>
+      </div>
+    </div>
+
+    <div class="note">
+      <h3>Sadə hissələrdən mürəkkəb forma</h3>
+      <p>0 gizli neyronla model dairəni ayıra bilmir — dəqiqlik 50–70% arasında ilişib qalır. Səbəb 1-ci addımda gördüyümüz şeydir: <strong>bir neyron yalnız düz xətt çəkir</strong>, dairəni isə bir düz xətlə kəsmək mümkün deyil.</p>
+      <p>İndi gizli neyronları artır. Yuxarıdakı kiçik pəncərələrə bax: hər gizli neyron <strong>hələ də düz xətt</strong> çəkir! Heç biri dairə çəkmir. Amma sonuncu neyron onların cavablarını fərqli çəkilərlə toplayır — və bu cəmdən əyri sərhəd yaranır.</p>
+      <p>“Dərin öyrənmə” elə budur: sadə hissələri qatlar şəklində üst-üstə yığıb mürəkkəb forma qurmaq. Böyük dil modellərində — Claude, GPT — eyni prinsip işləyir, sadəcə orada neyron sayı 8 deyil, milyardlarladır və giriş nöqtə yox, sözdür.</p>
+      <p><strong>Spiral</strong> formasını da sına. 8 neyron çətinliklə çatır — bu, real problemin nə üçün daha böyük şəbəkə tələb etdiyini yaxşı göstərir.</p>
+    </div>
+  </section>
+
+  <footer class="end">
+    <h2>Bundan sonra</h2>
+    <p>Bu səhifədəki şəbəkə həqiqidir: irəli yayılma, itki funksiyası və geri yayılma (backpropagation) sıfırdan, əl ilə yazılıb — cəmi bir neçə yüz sətir. Kodu <code>index.html</code> faylının içində oxuya bilərsən; şərhlər riyaziyyatın hansı hissəsinin harada olduğunu göstərir.</p>
+    <p>Növbəti addımlar: eyni şəbəkəni Python-da NumPy ilə yazmaq, sonra PyTorch ilə müqayisə etmək, sonra isə Azərbaycan mətni üzrə kiçik dil modeli (mini-GPT) öyrətmək.</p>
+  </footer>
+
+</div>
+
+<script>
+"use strict";
+
+/* ==================================================================
+   1. Small utilities
+   ================================================================== */
+
+const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
+const sigmoid = z => 1 / (1 + Math.exp(-z));
+
+/** Deterministic PRNG so "Sıfırla" is reproducible and the page always
+ *  opens in the same state. */
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Box–Muller, driven by the seeded PRNG above. */
+function gauss(rng, mean, sd) {
+  const u = Math.max(rng(), 1e-9), v = rng();
+  return mean + sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+const fmt = (n, d = 2) => {
+  const s = Math.abs(n).toFixed(d);
+  return (n < 0 ? "−" : "") + s;            // U+2212 minus, not a hyphen
+};
+
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ==================================================================
+   2. The network — written from scratch, no library.
+
+   Architecture:  2  ->  [h]  ->  1
+   Hidden activation: tanh.  Output activation: sigmoid.
+   Loss: binary cross-entropy.  Optimiser: full-batch gradient
+   descent with momentum.
+
+   When h === 0 the "network" is a single neuron wired straight from
+   the two inputs to the output — which is exactly section 1 and 2.
+   ================================================================== */
+
+function createNet(hidden, seed) {
+  const rng = mulberry32(seed);
+  const outSize = hidden > 0 ? hidden : 2;
+  const net = {
+    hidden,
+    W1: [], b1: [],                          // input -> hidden
+    W2: new Array(outSize), b2: 0,           // hidden (or input) -> output
+    vW1: [], vb1: [],                        // momentum buffers
+    vW2: new Array(outSize).fill(0), vb2: 0
+  };
+  for (let j = 0; j < hidden; j++) {
+    net.W1.push([rng() * 2 - 1, rng() * 2 - 1]);
+    net.b1.push(rng() * 0.4 - 0.2);
+    net.vW1.push([0, 0]);
+    net.vb1.push(0);
+  }
+  for (let j = 0; j < outSize; j++) net.W2[j] = rng() * 2 - 1;
+  net.b2 = 0;
+  return net;
+}
+
+/** Forward pass. Returns the output probability and the hidden
+ *  activations (needed again during backprop). */
+function forward(net, x0, x1) {
+  if (net.hidden === 0) {
+    const z = net.W2[0] * x0 + net.W2[1] * x1 + net.b2;
+    return { p: sigmoid(z), a: null };
+  }
+  const a = new Array(net.hidden);
+  for (let j = 0; j < net.hidden; j++) {
+    a[j] = Math.tanh(net.W1[j][0] * x0 + net.W1[j][1] * x1 + net.b1[j]);
+  }
+  let z = net.b2;
+  for (let j = 0; j < net.hidden; j++) z += net.W2[j] * a[j];
+  return { p: sigmoid(z), a };
+}
+
+/** One full-batch gradient-descent step. Returns the mean loss. */
+function trainStep(net, pts, lr, momentum) {
+  const N = pts.length;
+  if (N === 0) return 0;
+
+  const gW2 = new Array(net.W2.length).fill(0);
+  let gb2 = 0;
+  const gW1 = net.W1.map(() => [0, 0]);
+  const gb1 = net.b1.map(() => 0);
+  let loss = 0;
+
+  for (let i = 0; i < N; i++) {
+    const pt = pts[i];
+    const { p, a } = forward(net, pt.x, pt.y);
+    const y = pt.label;
+
+    const pc = clamp(p, 1e-7, 1 - 1e-7);
+    loss += -(y * Math.log(pc) + (1 - y) * Math.log(1 - pc));
+
+    // For sigmoid output + binary cross-entropy the gradient of the
+    // loss w.r.t. the pre-activation collapses to just (p - y).
+    const dz = p - y;                                   // dL/dz_out
+
+    if (net.hidden === 0) {
+      gW2[0] += dz * pt.x;
+      gW2[1] += dz * pt.y;
+      gb2    += dz;
+    } else {
+      for (let j = 0; j < net.hidden; j++) gW2[j] += dz * a[j];   // dL/dW_out
+      gb2 += dz;
+      for (let j = 0; j < net.hidden; j++) {
+        // Chain rule back through the output weight and tanh'(z) = 1 - tanh²(z)
+        const dz1 = dz * net.W2[j] * (1 - a[j] * a[j]);           // dL/dz_hidden
+        gW1[j][0] += dz1 * pt.x;
+        gW1[j][1] += dz1 * pt.y;
+        gb1[j]    += dz1;
+      }
+    }
+  }
+
+  // Apply: velocity = momentum * velocity - lr * gradient
+  const s = 1 / N;
+  for (let j = 0; j < net.W2.length; j++) {
+    net.vW2[j] = momentum * net.vW2[j] - lr * gW2[j] * s;
+    net.W2[j] += net.vW2[j];
+  }
+  net.vb2 = momentum * net.vb2 - lr * gb2 * s;
+  net.b2 += net.vb2;
+
+  for (let j = 0; j < net.hidden; j++) {
+    for (let k = 0; k < 2; k++) {
+      net.vW1[j][k] = momentum * net.vW1[j][k] - lr * gW1[j][k] * s;
+      net.W1[j][k] += net.vW1[j][k];
+    }
+    net.vb1[j] = momentum * net.vb1[j] - lr * gb1[j] * s;
+    net.b1[j] += net.vb1[j];
+  }
+
+  return loss * s;
+}
+
+function accuracy(net, pts) {
+  if (!pts.length) return 0;
+  let ok = 0;
+  for (const pt of pts) {
+    const { p } = forward(net, pt.x, pt.y);
+    if ((p >= 0.5 ? 1 : 0) === pt.label) ok++;
+  }
+  return ok / pts.length;
+}
+
+/* ==================================================================
+   3. Datasets. All coordinates live in [-1, 1].
+   ================================================================== */
+
+const DATASETS = {
+  blobs(seed) {
+    const rng = mulberry32(seed), pts = [];
+    for (let i = 0; i < 60; i++) {
+      pts.push({ x: clamp(gauss(rng, -0.42, 0.24), -1, 1), y: clamp(gauss(rng, -0.38, 0.24), -1, 1), label: 0 });
+      pts.push({ x: clamp(gauss(rng,  0.42, 0.24), -1, 1), y: clamp(gauss(rng,  0.38, 0.24), -1, 1), label: 1 });
+    }
+    return pts;
+  },
+  circle(seed) {
+    const rng = mulberry32(seed), pts = [];
+    for (let i = 0; i < 60; i++) {
+      let r = rng() * 0.38, t = rng() * Math.PI * 2;
+      pts.push({ x: r * Math.cos(t), y: r * Math.sin(t), label: 1 });
+      r = 0.62 + rng() * 0.3; t = rng() * Math.PI * 2;
+      pts.push({ x: clamp(r * Math.cos(t), -1, 1), y: clamp(r * Math.sin(t), -1, 1), label: 0 });
+    }
+    return pts;
+  },
+  xor(seed) {
+    const rng = mulberry32(seed), pts = [];
+    for (let i = 0; i < 120; i++) {
+      const x = rng() * 1.8 - 0.9, y = rng() * 1.8 - 0.9;
+      if (Math.abs(x) < 0.06 || Math.abs(y) < 0.06) continue;
+      pts.push({ x, y, label: (x > 0) === (y > 0) ? 1 : 0 });
+    }
+    return pts;
+  },
+  spiral(seed) {
+    const rng = mulberry32(seed), pts = [];
+    const N = 60;
+    for (let i = 0; i < N; i++) {
+      const r = 0.08 + (i / N) * 0.86;
+      const t = (i / N) * 2.6 * Math.PI;
+      for (const [off, label] of [[0, 1], [Math.PI, 0]]) {
+        pts.push({
+          x: clamp(r * Math.cos(t + off) + gauss(rng, 0, 0.025), -1, 1),
+          y: clamp(r * Math.sin(t + off) + gauss(rng, 0, 0.025), -1, 1),
+          label
+        });
+      }
+    }
+    return pts;
+  }
+};
+
+/* ==================================================================
+   4. Palette bridge — CSS tokens -> canvas colours.
+   Re-read whenever the theme changes so both themes stay correct.
+   ================================================================== */
+
+let PAL = null;
+
+function readPalette() {
+  const cs = getComputedStyle(document.documentElement);
+  const trip = name => cs.getPropertyValue(name).trim().split(/\s+/).map(Number);
+  PAL = {
+    a: trip("--class-a-rgb"),
+    b: trip("--class-b-rgb"),
+    grid: trip("--grid-rgb"),
+    surface: cs.getPropertyValue("--surface-2").trim(),
+    ink: cs.getPropertyValue("--ink").trim(),
+    signal: cs.getPropertyValue("--signal").trim(),
+    faint: cs.getPropertyValue("--faint").trim(),
+    classA: cs.getPropertyValue("--class-a").trim(),
+    classB: cs.getPropertyValue("--class-b").trim()
+  };
+}
+readPalette();
+
+/* ==================================================================
+   5. Canvas plumbing
+   ================================================================== */
+
+/** Size the backing store to the device pixel ratio and return a
+ *  context already scaled so we can draw in CSS pixels. */
+function fit(cv) {
+  const w = cv.clientWidth, h = cv.clientHeight;
+  if (!w || !h) return null;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = Math.round(w * dpr);
+  cv.height = Math.round(h * dpr);
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w, h };
+}
+
+const toPx = (x, w) => (x + 1) / 2 * w;
+const toPy = (y, h) => (1 - y) / 2 * h;
+const toData = (px, py, w, h) => [px / w * 2 - 1, 1 - py / h * 2];
+
+/* The decision surface is evaluated on a coarse grid and scaled up.
+   Doing it per display pixel would stall a phone; 64×64 is plenty
+   because the boundary is smooth. */
+const GRID = 64;
+const fieldBuf = document.createElement("canvas");
+fieldBuf.width = fieldBuf.height = GRID;
+const fieldCtx = fieldBuf.getContext("2d");
+const fieldImg = fieldCtx.createImageData(GRID, GRID);
+
+function paintSurface(ctx, w, h, valueAt) {
+  const d = fieldImg.data;
+  for (let j = 0; j < GRID; j++) {
+    const y = 1 - (j + 0.5) / GRID * 2;
+    for (let i = 0; i < GRID; i++) {
+      const x = -1 + (i + 0.5) / GRID * 2;
+      const p = valueAt(x, y);                    // 0..1
+      const conf = Math.abs(p - 0.5) * 2;
+      const rgb = p >= 0.5 ? PAL.a : PAL.b;
+      const k = (j * GRID + i) * 4;
+      d[k] = rgb[0]; d[k + 1] = rgb[1]; d[k + 2] = rgb[2];
+      d[k + 3] = Math.round((0.10 + 0.46 * conf) * 255);
+    }
+  }
+  fieldCtx.putImageData(fieldImg, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(fieldBuf, 0, 0, w, h);
+}
+
+function paintGrid(ctx, w, h) {
+  const [gr, gg, gb] = PAL.grid;
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = `rgba(${gr},${gg},${gb},.28)`;
+  ctx.beginPath();
+  for (let i = 1; i < 4; i++) {
+    const t = i / 4;
+    ctx.moveTo(Math.round(t * w) + .5, 0); ctx.lineTo(Math.round(t * w) + .5, h);
+    ctx.moveTo(0, Math.round(t * h) + .5); ctx.lineTo(w, Math.round(t * h) + .5);
+  }
+  ctx.stroke();
+  ctx.strokeStyle = `rgba(${gr},${gg},${gb},.6)`;
+  ctx.beginPath();
+  ctx.moveTo(Math.round(w / 2) + .5, 0); ctx.lineTo(Math.round(w / 2) + .5, h);
+  ctx.moveTo(0, Math.round(h / 2) + .5); ctx.lineTo(w, Math.round(h / 2) + .5);
+  ctx.stroke();
+}
+
+function paintPoints(ctx, w, h, pts) {
+  for (const pt of pts) {
+    ctx.beginPath();
+    ctx.arc(toPx(pt.x, w), toPy(pt.y, h), 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = pt.label === 1 ? PAL.classA : PAL.classB;
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = PAL.surface;
+    ctx.stroke();
+  }
+}
+
+/** The crisp 0.5 boundary of a single neuron: w0·x + w1·y + b = 0.
+ *  Only meaningful when there is no hidden layer — which is the whole
+ *  point being made in sections 1 and 2. */
+function paintLine(ctx, w, h, w0, w1, b) {
+  let a, c;
+  if (Math.abs(w1) > Math.abs(w0)) {
+    a = [-1, -(w0 * -1 + b) / w1];
+    c = [ 1, -(w0 *  1 + b) / w1];
+  } else if (Math.abs(w0) > 1e-6) {
+    a = [-(w1 * -1 + b) / w0, -1];
+    c = [-(w1 *  1 + b) / w0,  1];
+  } else {
+    return;                                   // both weights ~0: no line
+  }
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, w, h);
+  ctx.clip();
+  ctx.beginPath();
+  ctx.moveTo(toPx(a[0], w), toPy(a[1], h));
+  ctx.lineTo(toPx(c[0], w), toPy(c[1], h));
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = PAL.ink;
+  ctx.setLineDash([6, 4]);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function paintSpark(cv, history) {
+  const f = fit(cv);
+  if (!f) return;
+  const { ctx, w, h } = f;
+  ctx.clearRect(0, 0, w, h);
+  const [gr, gg, gb] = PAL.grid;
+  ctx.strokeStyle = `rgba(${gr},${gg},${gb},.45)`;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, h - .5); ctx.lineTo(w, h - .5);
+  ctx.stroke();
+
+  if (history.length < 2) {
+    ctx.fillStyle = PAL.faint;
+    ctx.font = '11px "IBM Plex Mono", monospace';
+    ctx.fillText("itki əyrisi — öyrətməyə başla", 2, h / 2);
+    return;
+  }
+  const max = Math.max(...history, 0.02);
+  const pad = 3;
+  ctx.beginPath();
+  history.forEach((v, i) => {
+    const x = (i / (history.length - 1)) * w;
+    const y = pad + (1 - v / max) * (h - pad * 2);
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  });
+  ctx.strokeStyle = PAL.signal;
+  ctx.lineWidth = 2;
+  ctx.lineJoin = "round";
+  ctx.stroke();
+}
+
+/* ==================================================================
+   6. Shared animation loop. Every running trainer is serviced here so
+   there is exactly one requestAnimationFrame in the page.
+   ================================================================== */
+
+const running = new Set();
+let rafId = null;
+
+function loop() {
+  for (const lab of running) lab.frame();
+  rafId = running.size ? requestAnimationFrame(loop) : null;
+}
+function startLoop(lab) {
+  running.add(lab);
+  if (rafId === null) rafId = requestAnimationFrame(loop);
+}
+function stopLoop(lab) { running.delete(lab); }
+
+const $ = id => document.getElementById(id);
+
+/* ==================================================================
+   7. Section 1 — one neuron, driven by hand
+   ================================================================== */
+
+const s1 = {
+  w1: 1.1, w2: 0.75, b: -0.2,
+  probe: { x: 0.45, y: 0.3 },
+  cv: $("c1"), dragging: false
+};
+
+function s1Draw() {
+  const f = fit(s1.cv);
+  if (!f) return;
+  const { ctx, w, h } = f;
+  ctx.fillStyle = PAL.surface;
+  ctx.fillRect(0, 0, w, h);
+  paintSurface(ctx, w, h, (x, y) => sigmoid(s1.w1 * x + s1.w2 * y + s1.b));
+  paintGrid(ctx, w, h);
+  paintLine(ctx, w, h, s1.w1, s1.w2, s1.b);
+
+  // the probe point the user drags — this is the neuron's input
+  const px = toPx(s1.probe.x, w), py = toPy(s1.probe.y, h);
+  ctx.beginPath();
+  ctx.arc(px, py, 11, 0, Math.PI * 2);
+  ctx.fillStyle = PAL.signal;
+  ctx.globalAlpha = .2; ctx.fill(); ctx.globalAlpha = 1;
+  ctx.beginPath();
+  ctx.arc(px, py, 6.5, 0, Math.PI * 2);
+  ctx.fillStyle = PAL.signal;
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = PAL.surface;
+  ctx.stroke();
+}
+
+function s1Update() {
+  const { x, y } = s1.probe;
+  const z = s1.w1 * x + s1.w2 * y + s1.b;
+  const out = sigmoid(z);
+
+  $("w1v").textContent = fmt(s1.w1);
+  $("w2v").textContent = fmt(s1.w2);
+  $("b1v").textContent = fmt(s1.b);
+
+  const term = (wv, xv) => `${wv < 0 ? "(" + fmt(wv) + ")" : fmt(wv)}×${fmt(xv)}`;
+  $("r1-sum").innerHTML =
+    `z = ${term(s1.w1, x)} + ${term(s1.w2, y)} + ${s1.b < 0 ? "(" + fmt(s1.b) + ")" : fmt(s1.b)} = <b>${fmt(z)}</b>`;
+  $("r1-out").innerHTML =
+    `y = σ(${fmt(z)}) = <b>${fmt(out)}</b> &nbsp;→&nbsp; ${out >= .5
+      ? '<span class="pos">A qrupu</span>' : '<span class="neg">B qrupu</span>'}`;
+
+  // diagram: edge thickness carries |w|, colour carries its sign
+  const edge = (el, wv) => {
+    el.setAttribute("stroke-width", (1 + Math.abs(wv) * 2.6).toFixed(2));
+    el.setAttribute("stroke", wv < 0 ? PAL.classB : PAL.signal);
+  };
+  edge($("e1"), s1.w1);
+  edge($("e2"), s1.w2);
+  $("e3").setAttribute("stroke", PAL.signal);
+  $("d1-w1").textContent = `w₁ ${fmt(s1.w1)}`;
+  $("d1-w2").textContent = `w₂ ${fmt(s1.w2)}`;
+  $("d1-b").textContent  = `b ${fmt(s1.b)}`;
+  $("d1-x1").textContent = fmt(x);
+  $("d1-x2").textContent = fmt(y);
+  $("d1-y").textContent  = fmt(out);
+
+  s1Draw();
+}
+
+for (const [id, key] of [["w1", "w1"], ["w2", "w2"], ["b1", "b"]]) {
+  $(id).addEventListener("input", e => { s1[key] = parseFloat(e.target.value); s1Update(); });
+}
+
+/** Pointer -> data coordinates, shared by every interactive field. */
+function pointerData(cv, ev) {
+  const r = cv.getBoundingClientRect();
+  return toData(
+    clamp(ev.clientX - r.left, 0, r.width),
+    clamp(ev.clientY - r.top, 0, r.height),
+    r.width, r.height
+  );
+}
+
+s1.cv.addEventListener("pointerdown", ev => {
+  s1.dragging = true;
+  s1.cv.setPointerCapture(ev.pointerId);
+  const [x, y] = pointerData(s1.cv, ev);
+  s1.probe = { x, y };
+  s1Update();
+});
+s1.cv.addEventListener("pointermove", ev => {
+  if (!s1.dragging) return;
+  const [x, y] = pointerData(s1.cv, ev);
+  s1.probe = { x, y };
+  s1Update();
+});
+for (const t of ["pointerup", "pointercancel"]) {
+  s1.cv.addEventListener(t, () => { s1.dragging = false; });
+}
+
+/* ==================================================================
+   8. A trainable lab — shared by sections 2 and 3
+   ================================================================== */
+
+function createLab(cfg) {
+  const lab = {
+    cv: $(cfg.canvas),
+    spark: $(cfg.spark),
+    hidden: cfg.hidden,
+    dataset: cfg.dataset,
+    seed: cfg.seed,
+    lr: cfg.lr,
+    momentum: 0.9,
+    stepsPerFrame: cfg.stepsPerFrame,
+    maxSteps: cfg.maxSteps,
+    paintClass: 1,
+    pts: [], net: null, steps: 0, loss: null, history: [],
+    training: false,
+    onRender: cfg.onRender || (() => {}),
+
+    reset(keepPoints) {
+      // Halt without reporting: the readouts read the network, and it
+      // does not exist yet on the very first reset.
+      this.training = false;
+      stopLoop(this);
+      if (!keepPoints) this.pts = DATASETS[this.dataset](this.seed);
+      this.net = createNet(this.hidden, this.seed + 977);
+      this.steps = 0;
+      this.loss = null;
+      this.history = [];
+      this.render();
+    },
+
+    render() {
+      const f = fit(this.cv);
+      if (f) {
+        const { ctx, w, h } = f;
+        ctx.fillStyle = PAL.surface;
+        ctx.fillRect(0, 0, w, h);
+        paintSurface(ctx, w, h, (x, y) => forward(this.net, x, y).p);
+        paintGrid(ctx, w, h);
+        if (this.net.hidden === 0) {
+          paintLine(ctx, w, h, this.net.W2[0], this.net.W2[1], this.net.b2);
+        }
+        paintPoints(ctx, w, h, this.pts);
+      }
+      paintSpark(this.spark, this.history);
+      this.onRender(this);
+    },
+
+    frame() {
+      for (let i = 0; i < this.stepsPerFrame; i++) {
+        this.loss = trainStep(this.net, this.pts, this.lr, this.momentum);
+        this.steps++;
+      }
+      this.history.push(this.loss);
+      if (this.history.length > 220) this.history.shift();
+      this.render();
+      if (this.steps >= this.maxSteps) this.stop();
+    },
+
+    start() {
+      if (this.training || !this.pts.length) return;
+      if (this.steps >= this.maxSteps) { this.steps = 0; this.history = []; }
+      this.training = true;
+      startLoop(this);
+      this.onRender(this);
+    },
+
+    stop() {
+      this.training = false;
+      stopLoop(this);
+      this.onRender(this);
+    },
+
+    toggle() { this.training ? this.stop() : this.start(); },
+
+    /** Run training without animating — used when the viewer has asked
+     *  for reduced motion, so the page still opens in a trained state. */
+    runSilently(n) {
+      for (let i = 0; i < n; i++) {
+        this.loss = trainStep(this.net, this.pts, this.lr, this.momentum);
+        this.steps++;
+        if (i % 8 === 0) {
+          this.history.push(this.loss);
+          if (this.history.length > 220) this.history.shift();
+        }
+      }
+      this.render();
+    }
+  };
+
+  lab.cv.addEventListener("pointerdown", ev => {
+    ev.preventDefault();
+    const [x, y] = pointerData(lab.cv, ev);
+    lab.pts.push({ x, y, label: lab.paintClass });
+    lab.render();
+  });
+
+  return lab;
+}
+
+/* ------------------------------ section 2 ------------------------------ */
+
+const lab2 = createLab({
+  canvas: "c2", spark: "sp2", hidden: 0, dataset: "blobs",
+  seed: 7, lr: 0.9, stepsPerFrame: 14, maxSteps: 2400,
+  onRender(l) {
+    $("st2-step").textContent = l.steps;
+    $("st2-loss").textContent = l.loss === null ? "—" : l.loss.toFixed(3);
+    const acc = accuracy(l.net, l.pts);
+    const av = $("st2-acc");
+    av.textContent = l.pts.length ? (acc * 100).toFixed(0) + "%" : "—";
+    av.dataset.tone = !l.pts.length ? "" : acc >= 0.9 ? "ok" : acc >= 0.7 ? "" : "bad";
+    const sign = v => `<span class="${v < 0 ? "neg" : "pos"}">${fmt(v)}</span>`;
+    $("r2-w").innerHTML =
+      `w₁ = ${sign(l.net.W2[0])} &nbsp; w₂ = ${sign(l.net.W2[1])} &nbsp; b = ${sign(l.net.b2)}`;
+    $("run2").textContent = l.training ? "Dayan" : "Öyrət";
+  }
+});
+
+$("run2").addEventListener("click", () => lab2.toggle());
+$("reset2").addEventListener("click", () => lab2.reset(false));
+$("clear2").addEventListener("click", () => { lab2.stop(); lab2.pts = []; lab2.steps = 0; lab2.history = []; lab2.render(); });
+$("p2a").addEventListener("click", () => {
+  lab2.paintClass = 1;
+  $("p2a").setAttribute("aria-pressed", "true");
+  $("p2b").setAttribute("aria-pressed", "false");
+});
+$("p2b").addEventListener("click", () => {
+  lab2.paintClass = 0;
+  $("p2a").setAttribute("aria-pressed", "false");
+  $("p2b").setAttribute("aria-pressed", "true");
+});
+
+/* ------------------------------ section 3 ------------------------------ */
+
+const THUMB = 28;
+const thumbBuf = document.createElement("canvas");
+thumbBuf.width = thumbBuf.height = THUMB;
+const thumbCtx = thumbBuf.getContext("2d");
+const thumbImg = thumbCtx.createImageData(THUMB, THUMB);
+
+/** One thumbnail per hidden neuron, showing the straight line that
+ *  neuron alone draws. The whole lesson of section 3 is that these
+ *  stay straight while their sum curves. */
+function renderThumbs(lab) {
+  const host = $("th3");
+  if (lab.net.hidden === 0) {
+    host.innerHTML = '<span class="thumbs__empty">Gizli neyron yoxdur — şəbəkə yalnız bir düz xətt çəkir.</span>';
+    return;
+  }
+  if (host.children.length !== lab.net.hidden || !host.firstElementChild.classList.contains("thumb")) {
+    host.innerHTML = "";
+    for (let j = 0; j < lab.net.hidden; j++) {
+      const box = document.createElement("div");
+      box.className = "thumb";
+      const cv = document.createElement("canvas");
+      cv.width = cv.height = THUMB * 3;
+      const cap = document.createElement("span");
+      box.append(cv, cap);
+      host.append(box);
+    }
+  }
+  for (let j = 0; j < lab.net.hidden; j++) {
+    const box = host.children[j];
+    const ctx = box.firstElementChild.getContext("2d");
+    const d = thumbImg.data;
+    for (let r = 0; r < THUMB; r++) {
+      const y = 1 - (r + 0.5) / THUMB * 2;
+      for (let c = 0; c < THUMB; c++) {
+        const x = -1 + (c + 0.5) / THUMB * 2;
+        const a = Math.tanh(lab.net.W1[j][0] * x + lab.net.W1[j][1] * y + lab.net.b1[j]);
+        const rgb = a >= 0 ? PAL.a : PAL.b;
+        const k = (r * THUMB + c) * 4;
+        d[k] = rgb[0]; d[k + 1] = rgb[1]; d[k + 2] = rgb[2];
+        d[k + 3] = Math.round((0.12 + 0.5 * Math.abs(a)) * 255);
+      }
+    }
+    thumbCtx.putImageData(thumbImg, 0, 0);
+    ctx.clearRect(0, 0, THUMB * 3, THUMB * 3);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(thumbBuf, 0, 0, THUMB * 3, THUMB * 3);
+    box.lastElementChild.textContent = `n${j + 1} · ${fmt(lab.net.W2[j], 1)}`;
+  }
+}
+
+const lab3 = createLab({
+  canvas: "c3", spark: "sp3", hidden: 0, dataset: "circle",
+  seed: 11, lr: 0.6, stepsPerFrame: 12, maxSteps: 6000,
+  onRender(l) {
+    $("st3-step").textContent = l.steps;
+    $("st3-loss").textContent = l.loss === null ? "—" : l.loss.toFixed(3);
+    const acc = accuracy(l.net, l.pts);
+    const av = $("st3-acc");
+    av.textContent = l.pts.length ? (acc * 100).toFixed(0) + "%" : "—";
+    av.dataset.tone = !l.pts.length ? "" : acc >= 0.9 ? "ok" : acc >= 0.7 ? "" : "bad";
+    $("run3").textContent = l.training ? "Dayan" : "Öyrət";
+    renderThumbs(l);
+  }
+});
+
+$("run3").addEventListener("click", () => lab3.toggle());
+$("reset3").addEventListener("click", () => lab3.reset(false));
+$("h3").addEventListener("input", e => {
+  lab3.hidden = parseInt(e.target.value, 10);
+  $("h3v").textContent = lab3.hidden;
+  lab3.reset(true);                      // keep the points, rebuild the network
+});
+document.querySelectorAll("[data-set]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("[data-set]").forEach(b =>
+      b.setAttribute("aria-pressed", String(b === btn)));
+    lab3.dataset = btn.dataset.set;
+    lab3.reset(false);
+  });
+});
+
+/* ==================================================================
+   9. Boot
+   ================================================================== */
+
+function boot(saved) {
+  if (saved && saved.dataset && DATASETS[saved.dataset]) lab3.dataset = saved.dataset;
+  if (saved && typeof saved.hidden === "number") {
+    lab3.hidden = clamp(saved.hidden, 0, 8);
+    $("h3").value = String(lab3.hidden);
+    $("h3v").textContent = lab3.hidden;
+  }
+  document.querySelectorAll("[data-set]").forEach(b =>
+    b.setAttribute("aria-pressed", String(b.dataset.set === lab3.dataset)));
+
+  s1Update();
+  lab2.reset(false);
+  lab3.reset(false);
+
+  if (saved && Array.isArray(saved.pts2) && saved.pts2.length) { lab2.pts = saved.pts2; lab2.render(); }
+  if (saved && Array.isArray(saved.pts3) && saved.pts3.length) { lab3.pts = saved.pts3; lab3.render(); }
+
+  // Section 2 should demonstrate itself without the viewer doing anything.
+  if (reduceMotion) lab2.runSilently(1200);
+  else lab2.start();
+}
+
+// Re-read the palette and repaint when the viewer's theme flips.
+const dark = window.matchMedia("(prefers-color-scheme: dark)");
+dark.addEventListener("change", () => {
+  readPalette(); s1Update(); lab2.render(); lab3.render();
+});
+new MutationObserver(() => {
+  readPalette(); s1Update(); lab2.render(); lab3.render();
+}).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+// Canvases are sized by CSS, so redraw whenever their box changes.
+const ro = new ResizeObserver(() => { s1Draw(); lab2.render(); lab3.render(); });
+[s1.cv, lab2.cv, lab3.cv, lab2.spark, lab3.spark].forEach(el => ro.observe(el));
+
+// Carry live state across an artifact republish where the host supports it.
+window.claude?.hot?.snapshot?.(() => ({
+  dataset: lab3.dataset,
+  hidden: lab3.hidden,
+  pts2: lab2.pts,
+  pts3: lab3.pts
+}));
+
+if (window.claude?.hot?.ready) window.claude.hot.ready(boot);
+else boot(window.claude?.hot?.data ?? null);
+</script>
+
+</body>
+</html>
