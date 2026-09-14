@@ -1,0 +1,1213 @@
+<!doctype html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neyron Dərsi</title>
+<meta name="description" content="Addım-addım gedən dərs: hər kartda bir fikir, əvvəlcə sənin proqnozun, sonra cavab.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root {
+  --paper:#eef1f4; --surface:#ffffff; --surface-2:#f6f8fa;
+  --ink:#101a22; --muted:#55697a; --faint:#8497a6; --rule:#d3dce4;
+  --grid-rgb:150 170 186;
+  --signal:#0c7c92; --signal-dim:#cfe9ef;
+  --class-a:#0f766e; --class-a-rgb:15 118 110;
+  --class-b:#c2660a; --class-b-rgb:194 102 10;
+  --ok:#0f766e; --ok-bg:#dcf2ee; --bad:#b4390d; --bad-bg:#fbe7de;
+  --shadow:0 1px 2px rgb(16 26 34/.06), 0 8px 24px -12px rgb(16 26 34/.18);
+  --sans:"IBM Plex Sans","Noto Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono","Noto Sans Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --step--1:clamp(.75rem,.72rem + .15vw,.82rem);
+  --step-0:clamp(.95rem,.91rem + .2vw,1.02rem);
+  --step-1:clamp(1.15rem,1.08rem + .34vw,1.35rem);
+  --step-2:clamp(1.4rem,1.26rem + .66vw,1.85rem);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:#0b1217; --surface:#121c23; --surface-2:#182430;
+    --ink:#e4edf4; --muted:#93a8b8; --faint:#6a8092; --rule:#23323d;
+    --grid-rgb:80 104 122;
+    --signal:#2fd3ee; --signal-dim:#143b46;
+    --class-a:#5eead4; --class-a-rgb:94 234 212;
+    --class-b:#f8a723; --class-b-rgb:248 167 35;
+    --ok:#5eead4; --ok-bg:#123a35; --bad:#fb8b60; --bad-bg:#3d1d12;
+    --shadow:0 1px 2px rgb(0 0 0/.4), 0 10px 30px -14px rgb(0 0 0/.7);
+  }
+}
+:root[data-theme="dark"] {
+  --paper:#0b1217; --surface:#121c23; --surface-2:#182430;
+  --ink:#e4edf4; --muted:#93a8b8; --faint:#6a8092; --rule:#23323d;
+  --grid-rgb:80 104 122;
+  --signal:#2fd3ee; --signal-dim:#143b46;
+  --class-a:#5eead4; --class-a-rgb:94 234 212;
+  --class-b:#f8a723; --class-b-rgb:248 167 35;
+  --ok:#5eead4; --ok-bg:#123a35; --bad:#fb8b60; --bad-bg:#3d1d12;
+  --shadow:0 1px 2px rgb(0 0 0/.4), 0 10px 30px -14px rgb(0 0 0/.7);
+}
+
+*,*::before,*::after { box-sizing:border-box; }
+[hidden] { display:none !important; }
+body {
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:var(--sans); font-size:var(--step-0); line-height:1.6;
+  -webkit-text-size-adjust:100%;
+}
+.wrap { max-width:640px; margin-inline:auto; padding-inline:18px; padding-block:26px 40px; }
+
+/* ---- progress rail ---- */
+.rail { display:flex; align-items:center; gap:10px; margin-bottom:20px; }
+.rail__dots { display:flex; gap:4px; flex:1; }
+.rail__dot { flex:1; height:3px; border-radius:2px; background:var(--rule); }
+.rail__dot[data-on="seen"] { background:var(--faint); }
+.rail__dot[data-on="now"] { background:var(--signal); }
+.rail__count {
+  font-family:var(--mono); font-size:var(--step--1);
+  font-variant-numeric:tabular-nums; color:var(--faint); white-space:nowrap;
+}
+
+/* ---- card ---- */
+.card { display:flex; flex-direction:column; gap:16px; }
+.card[hidden] { display:none !important; }
+.card__eyebrow {
+  font-family:var(--mono); font-size:var(--step--1); font-weight:600;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--signal); margin:0;
+}
+.card h2 {
+  font-size:var(--step-2); line-height:1.15; letter-spacing:-.02em;
+  font-weight:600; margin:-8px 0 0; text-wrap:balance;
+}
+.card p { margin:0; color:var(--muted); }
+.card p.say { color:var(--ink); }
+.card strong { color:var(--ink); font-weight:600; }
+.card code {
+  font-family:var(--mono); font-size:.9em; background:var(--surface-2);
+  padding:.1em .35em; border-radius:3px; color:var(--ink);
+}
+
+.panel {
+  background:var(--surface); border:1px solid var(--rule); border-radius:10px;
+  box-shadow:var(--shadow); padding:15px;
+  display:flex; flex-direction:column; gap:14px;
+}
+
+/* ---- dials ---- */
+.dial { display:grid; grid-template-columns:minmax(5.5rem,auto) 1fr 3.4rem; align-items:center; gap:10px; }
+.dial--tight { grid-template-columns:2.2rem 1fr 3.4rem; }
+.dial__name { font-size:var(--step--1); color:var(--muted); }
+.dial__name b { color:var(--ink); font-family:var(--mono); font-weight:600; }
+.dial__val {
+  font-family:var(--mono); font-size:var(--step--1); font-variant-numeric:tabular-nums;
+  text-align:right; color:var(--ink); font-weight:500;
+}
+.dialset { display:flex; flex-direction:column; gap:11px; }
+.dialset__cap {
+  font-family:var(--mono); font-size:11px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--faint); margin:0;
+}
+
+input[type="range"] { -webkit-appearance:none; appearance:none; width:100%; height:26px; margin:0; background:transparent; cursor:pointer; }
+input[type="range"]::-webkit-slider-runnable-track { height:3px; border-radius:2px; background:var(--rule); }
+input[type="range"]::-moz-range-track { height:3px; border-radius:2px; background:var(--rule); }
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance:none; appearance:none; width:22px; height:22px; margin-top:-9.5px;
+  border-radius:50%; background:var(--signal); border:3px solid var(--surface); box-shadow:0 0 0 1px var(--signal);
+}
+input[type="range"]::-moz-range-thumb {
+  width:16px; height:16px; border-radius:50%; background:var(--signal);
+  border:3px solid var(--surface); box-shadow:0 0 0 1px var(--signal);
+}
+input[type="range"]:focus-visible { outline:2px solid var(--signal); outline-offset:4px; border-radius:4px; }
+
+/* ---- verdict meter ---- */
+.verdict { display:flex; flex-direction:column; gap:7px; }
+.verdict__bar { height:11px; border-radius:6px; background:var(--surface-2); overflow:hidden; }
+.verdict__fill { height:100%; width:50%; background:var(--signal); border-radius:6px; transition:width .12s linear; }
+.verdict__text { font-size:var(--step-1); font-weight:600; letter-spacing:-.01em; }
+.verdict__text[data-yes="1"] { color:var(--class-a); }
+.verdict__text[data-yes="0"] { color:var(--class-b); }
+.verdict__sub { font-family:var(--mono); font-size:var(--step--1); color:var(--faint); font-variant-numeric:tabular-nums; }
+
+/* ---- formula readout ---- */
+.readout {
+  font-family:var(--mono); font-size:var(--step--1); font-variant-numeric:tabular-nums;
+  background:var(--surface-2); border-radius:7px; padding:11px 12px;
+  display:flex; flex-direction:column; gap:5px; overflow-x:auto;
+}
+.readout__line { white-space:nowrap; color:var(--muted); }
+.readout__line b { color:var(--ink); font-weight:600; }
+
+/* ---- field ---- */
+.field canvas {
+  display:block; width:100%; aspect-ratio:1; max-width:100%;
+  border-radius:6px; background:var(--surface-2); touch-action:none;
+}
+.axis { display:flex; justify-content:space-between; font-family:var(--mono); font-size:11px; color:var(--faint); margin-top:6px; }
+.sig { display:block; width:100%; height:130px; }
+.spark { display:block; width:100%; height:50px; }
+
+/* ---- buttons ---- */
+.btnrow { display:flex; flex-wrap:wrap; gap:8px; }
+button {
+  font-family:var(--sans); font-size:var(--step--1); font-weight:500; color:var(--ink);
+  background:var(--surface-2); border:1px solid var(--rule); border-radius:7px;
+  padding:9px 15px; min-height:42px; cursor:pointer;
+}
+button:hover:not(:disabled) { border-color:var(--faint); }
+button:focus-visible { outline:2px solid var(--signal); outline-offset:2px; }
+button:disabled { opacity:.45; cursor:default; }
+button[data-primary] { background:var(--signal); border-color:var(--signal); color:var(--surface); font-weight:600; }
+
+/* ---- quiz ---- */
+.quiz {
+  border:1px solid var(--rule); border-radius:10px; background:var(--surface);
+  padding:15px; display:flex; flex-direction:column; gap:11px;
+}
+.quiz__tag {
+  font-family:var(--mono); font-size:11px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--signal); margin:0;
+}
+.quiz__q { margin:0; color:var(--ink); font-weight:500; }
+.quiz__opts { display:flex; flex-direction:column; gap:7px; }
+.quiz__opts button { text-align:left; line-height:1.45; padding:11px 13px; }
+.quiz__opts button[data-state="right"] { background:var(--ok-bg); border-color:var(--ok); color:var(--ink); }
+.quiz__opts button[data-state="wrong"] { background:var(--bad-bg); border-color:var(--bad); color:var(--ink); }
+.quiz__out { display:flex; flex-direction:column; gap:7px; }
+.quiz__out[hidden] { display:none !important; }
+.quiz__verdict { font-weight:600; margin:0; }
+.quiz__verdict[data-ok="1"] { color:var(--ok); }
+.quiz__verdict[data-ok="0"] { color:var(--bad); }
+.quiz__why { margin:0; color:var(--muted); }
+.quiz__why + .quiz__why { margin-top:6px; }
+
+/* ---- stats ---- */
+.stats { display:flex; flex-wrap:wrap; gap:4px 20px; }
+.stat { display:flex; flex-direction:column; gap:1px; }
+.stat__k { font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); }
+.stat__v { font-family:var(--mono); font-size:1.05rem; font-weight:600; font-variant-numeric:tabular-nums; color:var(--ink); }
+.stat__v[data-tone="ok"] { color:var(--ok); }
+.stat__v[data-tone="bad"] { color:var(--bad); }
+
+/* ---- before / after table ---- */
+.ba { width:100%; border-collapse:collapse; font-family:var(--mono); font-size:var(--step--1); font-variant-numeric:tabular-nums; }
+.ba th, .ba td { text-align:right; padding:5px 4px; border-bottom:1px solid var(--rule); }
+.ba th:first-child, .ba td:first-child { text-align:left; color:var(--muted); }
+.ba th { color:var(--faint); font-weight:500; font-size:11px; letter-spacing:.08em; text-transform:uppercase; }
+.ba td.delta[data-dir="down"] { color:var(--ok); }
+.ba td.delta[data-dir="up"] { color:var(--bad); }
+
+/* ---- thumbnails ---- */
+.thumbs { display:flex; flex-wrap:wrap; gap:9px; }
+.thumb { display:flex; flex-direction:column; gap:3px; width:60px; }
+.thumb canvas { width:60px; height:60px; display:block; border-radius:4px; border:1px solid var(--rule); background:var(--surface-2); }
+.thumb span { font-family:var(--mono); font-size:10px; color:var(--faint); text-align:center; font-variant-numeric:tabular-nums; }
+.thumbs__empty { font-family:var(--mono); font-size:var(--step--1); color:var(--faint); }
+
+/* ---- note ---- */
+.note { border-left:2px solid var(--signal); padding:2px 0 2px 15px; display:flex; flex-direction:column; gap:9px; }
+.note p { margin:0; }
+
+/* ---- nav ---- */
+.nav { display:flex; gap:9px; margin-top:26px; padding-top:18px; border-top:1px solid var(--rule); }
+.nav button { flex:1; min-height:48px; }
+
+.out { color:var(--signal); text-decoration:none; border-bottom:1px solid currentColor; }
+.out:focus-visible { outline:2px solid var(--signal); outline-offset:2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *,*::before,*::after { animation-duration:.001ms !important; transition-duration:.001ms !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="rail">
+    <div class="rail__dots" id="dots" role="presentation"></div>
+    <span class="rail__count" id="count"></span>
+  </div>
+
+  <main id="deck">
+
+    <!-- ---------------------------------------------------------- 1 -->
+    <section class="card" data-card="1">
+      <p class="card__eyebrow">Başlanğıc</p>
+      <h2>Gödəkçə geyinim?</h2>
+      <p class="say">Çölə çıxırsan. Gödəkçə lazımdır, yoxsa yox? İki şey vacibdir: nə qədər soyuqdur, nə qədər küləklidir.</p>
+      <p>Amma bu iki şey hər kəs üçün eyni dərəcədə vacib deyil. Kimisi soyuğa dözür, küləyə yox. Aşağıdakı ikinci qrup sürgü ilə <strong>sənin üçün</strong> nəyin nə qədər vacib olduğunu təyin et.</p>
+      <div data-slot="jacket"></div>
+      <p>Sürgüləri çək və cavabın necə dəyişdiyinə bax. Hələ heç nə öyrənmək lazım deyil — sadəcə oyna.</p>
+    </section>
+
+    <!-- ---------------------------------------------------------- 2 -->
+    <section class="card" data-card="2">
+      <p class="card__eyebrow">Ad qoyuruq</p>
+      <h2>İndicə bir neyron işlətdin</h2>
+      <p class="say">Həmin “nə qədər vacibdir” rəqəminin adı var: <strong>çəki</strong> (ingiliscə <em>weight</em>). Riyaziyyatda ona <code>w</code> deyirlər.</p>
+      <p>Widget dəyişmədi — sadəcə indi altında baş verən hesabı da göstərir. Bax:</p>
+      <div data-slot="jacket"></div>
+      <p>Hər giriş öz çəkisinə vurulur, nəticələr toplanır. Vəssalam. <strong>Neyron budur</strong> — vur və topla.</p>
+      <p>Çəki mənfi də ola bilər. Sına: soyuqluğun çəkisini mənfi et. Onda “nə qədər soyuqdursa, o qədər az gödəkçə” deyəcək — mənasız, amma riyaziyyat işləyir.</p>
+    </section>
+
+    <!-- ---------------------------------------------------------- 3 -->
+    <section class="card" data-card="3">
+      <p class="card__eyebrow">Üçüncü rəqəm</p>
+      <h2>Həmişə üşüyən adam</h2>
+      <p class="say">Bəzi adamlar hava necə olursa olsun üşüyür. Bu, girişlərdən asılı deyil — sabit bir meyildir.</p>
+      <p>Neyronda bu meyli göstərən ayrıca rəqəm var: <strong>sürüşmə</strong> (<em>bias</em>), qısaca <code>b</code>. Sadəcə cəmin üstünə əlavə olunur.</p>
+
+      <div class="quiz" data-answer="a" data-quiz="q3">
+        <p class="quiz__tag">Əvvəlcə təxmin et</p>
+        <p class="quiz__q">Sürüşməni (b) böyütsəm nə olacaq?</p>
+        <div class="quiz__opts">
+          <button type="button" data-opt="a">Hava necə olursa olsun, daha çox “gödəkçə geyin” deyəcək</button>
+          <button type="button" data-opt="b">Yalnız soyuq havada cavab dəyişəcək</button>
+          <button type="button" data-opt="c">Heç nə dəyişməyəcək</button>
+        </div>
+        <div class="quiz__out" hidden>
+          <p class="quiz__verdict"></p>
+          <p class="quiz__why">Sürüşmə cəmə həmişə əlavə olunur — soyuqluqdan da, küləkdən də asılı olmayaraq. Ona görə bütün cavabları eyni istiqamətə sürüşdürür. Elə adı da buradandır.</p>
+          <p class="quiz__why">İndi <code>b</code> sürgüsünü özün çək və yoxla.</p>
+        </div>
+      </div>
+
+      <div data-slot="jacket"></div>
+    </section>
+
+    <!-- ---------------------------------------------------------- 4 -->
+    <section class="card" data-card="4">
+      <p class="card__eyebrow">Sonuncu addım</p>
+      <h2>Rəqəmi 0 ilə 1 arasına sıxışdırmaq</h2>
+      <p class="say">Cəm istənilən rəqəm ola bilər: <code>−7</code>, <code>0.3</code>, <code>42</code>. Bu cəmə <code>z</code> deyək.</p>
+      <p>Amma bizə lazım olan cavab “neçə faiz” tipindədir — yəni 0 ilə 1 arasında. Bunun üçün <code>z</code> xüsusi bir funksiyadan keçirilir: <strong>σ</strong> (siqmoid).</p>
+
+      <div class="quiz" data-answer="b" data-quiz="q4">
+        <p class="quiz__tag">Əvvəlcə təxmin et</p>
+        <p class="quiz__q">Əgər z = 5 olsa, σ(z) nə olar?</p>
+        <div class="quiz__opts">
+          <button type="button" data-opt="a">5 — funksiya rəqəmi dəyişmir</button>
+          <button type="button" data-opt="b">1-ə çox yaxın bir rəqəm</button>
+          <button type="button" data-opt="c">Həmişə tam 0.5</button>
+        </div>
+        <div class="quiz__out" hidden>
+          <p class="quiz__verdict"></p>
+          <p class="quiz__why">σ(5) = 0.993. Böyük müsbət rəqəmlər 1-ə, böyük mənfi rəqəmlər 0-a yaxınlaşır, amma heç vaxt tam çatmır. Yəni neyron heç vaxt 100% əmin olmur.</p>
+          <p class="quiz__why">Ən vacib nöqtə: <code>z = 0</code> olanda cavab tam <strong>0.5</strong>-dir — “bilmirəm”. Bu, qərar sərhədidir.</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <canvas class="sig" id="sigcv" aria-label="Siqmoid əyrisi və hazırkı z dəyərinin üzərindəki mövqeyi"></canvas>
+        <div class="readout"><div class="readout__line" id="sigout"></div></div>
+      </div>
+      <p>Yuxarıdakı əyri σ-dır. Nöqtə sənin hazırkı <code>z</code> dəyərini göstərir — aşağıdakı sürgüləri çəksən, nöqtə əyri boyunca sürüşəcək.</p>
+      <div data-slot="jacket"></div>
+    </section>
+
+    <!-- ---------------------------------------------------------- 5 -->
+    <section class="card" data-card="5">
+      <p class="card__eyebrow">Yoxlama</p>
+      <h2>Çəki nəyi idarə edir?</h2>
+
+      <div class="quiz" data-answer="a" data-quiz="q5">
+        <p class="quiz__tag">Əvvəlcə təxmin et</p>
+        <p class="quiz__q">Soyuqluğun çəkisini <code>0</code> etsəm nə olar?</p>
+        <div class="quiz__opts">
+          <button type="button" data-opt="a">Soyuqluq artıq cavaba heç təsir etməyəcək</button>
+          <button type="button" data-opt="b">Neyron həmişə “gödəkçə geyin” deyəcək</button>
+          <button type="button" data-opt="c">Neyron işləməyi dayandıracaq</button>
+        </div>
+        <div class="quiz__out" hidden>
+          <p class="quiz__verdict"></p>
+          <p class="quiz__why">Çəki 0-dırsa, həmin giriş nə olursa olsun <code>0 × giriş = 0</code> verir — yəni cəmə heç nə əlavə etmir. Giriş sanki yoxdur.</p>
+          <p class="quiz__why">Bu, çox vacib bir fikrin özəyidir: <strong>şəbəkə çəkiləri sıfıra yaxınlaşdıraraq lazımsız məlumatı özü ata bilir.</strong> Böyük modellərdə də məhz bu baş verir.</p>
+          <p class="quiz__why">Aşağıda <code>w₁</code>-i 0 et və soyuqluğu sağa-sola çək — cavab tərpənməyəcək.</p>
+        </div>
+      </div>
+
+      <div data-slot="jacket"></div>
+    </section>
+
+    <!-- ---------------------------------------------------------- 6 -->
+    <section class="card" data-card="6">
+      <p class="card__eyebrow">Başqa şəkildə</p>
+      <h2>Eyni neyron, indi rəsm kimi</h2>
+      <p class="say">“Soyuqluq” və “külək” əvəzinə sadəcə iki rəqəm deyək: <code>x₁</code> və <code>x₂</code>. Onda hər mümkün vəziyyəti bir kvadratın içində nöqtə kimi göstərmək olar.</p>
+      <p>Rəng neyronun cavabıdır: <span style="color:var(--class-a)">yaşıl</span> = “hə”, <span style="color:var(--class-b)">narıncı</span> = “yox”. Aradakı kəsikli xətt isə 0.5 sərhədidir — yəni “bilmirəm” yeri.</p>
+      <div data-slot="lab"></div>
+      <p>Üç sürgünü çək və sərhədin necə tərpəndiyinə bax. <strong>w</strong>-lar xəttin istiqamətini, <strong>b</strong> isə onu irəli-geri sürüşdürür.</p>
+      <div class="note">
+        <p><strong>Diqqət et:</strong> xətt həmişə düzdür. Nə qədər çalışsan da, bir neyrona əyri çəkdirə bilmirsən. Bu, 10-cu kartda bütün məsələnin açarı olacaq.</p>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------- 7 -->
+    <section class="card" data-card="7">
+      <p class="card__eyebrow">Səhv</p>
+      <h2>İndi düzgün cavabı bilirik</h2>
+      <p class="say">Kvadrata nöqtələr əlavə etdim və hər birinin <strong>düzgün cavabını</strong> bilirik: yaşıl nöqtə “hə” olmalıdır, narıncı nöqtə “yox”.</p>
+      <p>Neyron isə öz xəttini çəkib. Xəttin səhv tərəfində qalan hər nöqtə üçün o, səhv edir.</p>
+      <div data-slot="lab"></div>
+      <p><strong>İtki</strong> (ingiliscə <em>loss</em>) — neyronun nə qədər səhv etdiyini göstərən tək bir rəqəm. Hamısı düzgün olsa 0-a yaxınlaşır, çox səhv olsa böyüyür.</p>
+      <p>Bütün öyrənmənin məqsədi bircə şeydir: <strong>bu rəqəmi kiçiltmək.</strong></p>
+    </section>
+
+    <!-- ---------------------------------------------------------- 8 -->
+    <section class="card" data-card="8">
+      <p class="card__eyebrow">Ən vacib kart</p>
+      <h2>Bir addım</h2>
+      <p class="say">İndi ən vacib hissə. Kompüter hər çəki üçün bir sual verir: <em>“bu rəqəmi bir az böyütsəm, itki artar, yoxsa azalar?”</em></p>
+      <p>Sonra hər çəkini <strong>itkini azaldan tərəfə</strong> çox az sürüşdürür. Cəmi bu qədər. Bu hesablamanın adı <strong>qradiyent</strong>, geriyə doğru aparılmasının adı isə <strong>geri yayılma</strong> (backpropagation).</p>
+
+      <div class="quiz" data-answer="a" data-quiz="q8">
+        <p class="quiz__tag">Əvvəlcə təxmin et</p>
+        <p class="quiz__q">Bir addımdan sonra itki nə edəcək?</p>
+        <div class="quiz__opts">
+          <button type="button" data-opt="a">Bir az azalacaq</button>
+          <button type="button" data-opt="b">Birbaşa 0 olacaq</button>
+          <button type="button" data-opt="c">Təsadüfi dəyişəcək</button>
+        </div>
+        <div class="quiz__out" hidden>
+          <p class="quiz__verdict"></p>
+          <p class="quiz__why">Addım qəsdən <strong>kiçik</strong> atılır. Çox böyük addım atsan, hədəfi aşıb keçərsən. Ona görə öyrənmə minlərlə kiçik addımdan ibarətdir — bir böyük sıçrayışdan yox.</p>
+          <p class="quiz__why">İndi düyməni bir neçə dəfə bas və cədvələ bax.</p>
+        </div>
+      </div>
+
+      <div data-slot="lab"></div>
+      <p>Gördün? Rəqəmlər özləri dəyişir, xətt yaxşı yerə doğru sürüşür, itki azalır. <strong>“Öyrənmə” məhz budur.</strong> Başqa sehr yoxdur.</p>
+    </section>
+
+    <!-- ---------------------------------------------------------- 9 -->
+    <section class="card" data-card="9">
+      <p class="card__eyebrow">Sürət</p>
+      <h2>İndi saniyədə minlərlə addım</h2>
+      <p class="say">Eyni addım — sadəcə əlinlə yox, avtomatik. Aşağıdakı əyri itkinin necə düşdüyünü göstərir.</p>
+      <div data-slot="lab"></div>
+      <div class="note">
+        <p>Bu əyri süni intellektdə ən çox baxılan qrafikdir. Aşağı düşürsə — model öyrənir. Düz qalıbsa — ya öyrənəcək bir şey yoxdur, ya da model bacarmır.</p>
+        <p>GPT kimi modellər öyrədiləndə də alimlər eyni əyriyə baxırlar. Sadəcə orada addım sayı minlərlə yox, milyonlarladır və bir neçə ay çəkir.</p>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------- 10 -->
+    <section class="card" data-card="10">
+      <p class="card__eyebrow">Sərhəd</p>
+      <h2>Bir neyronun bacarmadığı şey</h2>
+      <p class="say">İndi nöqtələri dəyişdim: yaşıllar ortada, narıncılar ətrafda — dairə şəklində.</p>
+
+      <div class="quiz" data-answer="b" data-quiz="q10">
+        <p class="quiz__tag">Əvvəlcə təxmin et</p>
+        <p class="quiz__q">Bir neyron bu dairəni ayıra biləcəkmi?</p>
+        <div class="quiz__opts">
+          <button type="button" data-opt="a">Bəli, kifayət qədər öyrətsək bacarar</button>
+          <button type="button" data-opt="b">Xeyr, nə qədər öyrətsək də bacarmayacaq</button>
+        </div>
+        <div class="quiz__out" hidden>
+          <p class="quiz__verdict"></p>
+          <p class="quiz__why">6-cı kartda gördüyün qayda burada hökmünü verir: bir neyron yalnız <strong>düz xətt</strong> çəkir. Dairəni isə bir düz xətlə ortadan ayırmaq mümkün deyil — harda çəksən, hər iki tərəfdə səhv qalacaq.</p>
+          <p class="quiz__why">Öyrət və gör: dəqiqlik 50–60% ətrafında ilişib qalacaq. Bu, sikkə atmaqdan demək olar ki, yaxşı deyil.</p>
+        </div>
+      </div>
+
+      <div data-slot="lab"></div>
+      <p>Bu, uğursuzluq deyil — <strong>kəşfdir</strong>. Modelin nəyi bacarmadığını bilmək, nəyi bacardığını bilmək qədər vacibdir.</p>
+    </section>
+
+    <!-- ---------------------------------------------------------- 11 -->
+    <section class="card" data-card="11">
+      <p class="card__eyebrow">Həll</p>
+      <h2>Bir yox, bir neçə neyron</h2>
+      <p class="say">Bəs bir neyron bacarmırsa? Onda bir neçəsini yan-yana qoyaq, sonra <strong>başqa bir neyron</strong> onların cavablarını birləşdirsin.</p>
+      <p>Ortadakı bu sıraya <strong>gizli qat</strong> (hidden layer) deyilir — “gizli”, çünki nə giriş, nə də çıxışdır, arada oturur.</p>
+      <div data-slot="lab"></div>
+      <p>Gizli sayını artır və yenidən öyrət. Sonra aşağıdakı kiçik pəncərələrə diqqətlə bax.</p>
+      <div class="note">
+        <p>Hər gizli neyron <strong>hələ də düz xətt</strong> çəkir. Heç biri dairə çəkmir! Əyri sərhəd onların cavablarının <strong>cəmindən</strong> yaranır.</p>
+        <p>“Dərin öyrənmə” sözünün bütün mənası budur: sadə hissələri qatlar şəklində üst-üstə yığıb mürəkkəb forma qurmaq. Claude və GPT də eyni prinsiplə işləyir — sadəcə orada neyron sayı 8 deyil, milyardlarladır və giriş nöqtə yox, sözdür.</p>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------- 12 -->
+    <section class="card" data-card="12">
+      <p class="card__eyebrow">Son</p>
+      <h2>İndi sənin növbən</h2>
+      <p class="say">Bildiyin şeylərin siyahısı — bunlar həqiqətən süni intellektin bünövrəsidir:</p>
+      <div class="note">
+        <p><strong>Çəki</strong> — girişin nə qədər vacib olduğu. 0 olsa, giriş yox sayılır.</p>
+        <p><strong>Sürüşmə</strong> — girişlərdən asılı olmayan sabit meyil.</p>
+        <p><strong>σ</strong> — istənilən rəqəmi 0–1 arasına sıxışdırır.</p>
+        <p><strong>İtki</strong> — modelin nə qədər səhv etdiyi. Öyrənmənin yeganə məqsədi bunu azaltmaqdır.</p>
+        <p><strong>Qradiyent</strong> — hansı çəkini hansı tərəfə sürüşdürmək lazım olduğu.</p>
+        <p><strong>Gizli qat</strong> — düz xətlərdən əyri qurmaq üsulu.</p>
+      </div>
+      <p>Sərbəst oynamaq üçün laboratoriyaya keç: orada XOR və spiral kimi daha çətin formalar, öz nöqtələrini əlavə etmək imkanı var.</p>
+      <p><a class="out" href="https://claude.ai/code/artifact/bbe8267c-6a02-4e6c-8bc0-33e1b5214205">Neyron Laboratoriyasını aç →</a></p>
+
+      <h2 style="margin-top:14px">Həll olunmamış sual</h2>
+      <p class="say">Söz vermişdim — budur, bu gün <strong>heç kimin cavabını bilmədiyi</strong> bir şey:</p>
+      <div class="note">
+        <p><strong>Grokking.</strong> Kiçik bir şəbəkəni sadə riyazi əməliyyata öyrət. Model datanı tez əzbərləyir — öyrənmə dəqiqliyi 100%-ə çatır, amma yeni nümunələrdə tam uğursuzdur. Sonra minlərlə addım <em>heç nə dəyişmədən</em> keçir. Və birdən test dəqiqliyi 100%-ə tullanır — sanki model gec də olsa <em>anlayır</em>.</p>
+        <p>Bunu 2022-ci ildə təsadüfən aşkar ediblər. Niyə baş verdiyi hələ də tam izah olunmayıb.</p>
+        <p>Ən yaxşı tərəfi: bu təcrübə superkompüter tələb etmir. Adi maşında bir neçə dəqiqəyə təkrarlanır. <strong>Növbəti dəfə onu qurub öz gözünlə görəcəyik.</strong></p>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="nav">
+    <button type="button" id="prev">← Geri</button>
+    <button type="button" id="next" data-primary>İrəli →</button>
+  </nav>
+</div>
+
+<!-- ============ widgets, re-parented into whichever card hosts them ============ -->
+<div id="jacket" class="panel" hidden>
+  <div class="dialset">
+    <p class="dialset__cap">Vəziyyət</p>
+    <div class="dial">
+      <label class="dial__name" for="jx1">Soyuqluq</label>
+      <input type="range" id="jx1" min="0" max="10" step="0.1" value="6">
+      <span class="dial__val" id="jx1v">6.0</span>
+    </div>
+    <div class="dial">
+      <label class="dial__name" for="jx2">Külək</label>
+      <input type="range" id="jx2" min="0" max="10" step="0.1" value="4">
+      <span class="dial__val" id="jx2v">4.0</span>
+    </div>
+  </div>
+
+  <div class="dialset">
+    <p class="dialset__cap" id="jwcap">Mənim üçün nə qədər vacibdir</p>
+    <div class="dial">
+      <label class="dial__name" for="jw1" id="jw1l">Soyuqluq</label>
+      <input type="range" id="jw1" min="-3" max="3" step="0.1" value="2">
+      <span class="dial__val" id="jw1v">2.0</span>
+    </div>
+    <div class="dial">
+      <label class="dial__name" for="jw2" id="jw2l">Külək</label>
+      <input type="range" id="jw2" min="-3" max="3" step="0.1" value="1.2">
+      <span class="dial__val" id="jw2v">1.2</span>
+    </div>
+    <div class="dial" id="jbrow" hidden>
+      <label class="dial__name" for="jb" id="jbl">Sürüşmə <b>b</b></label>
+      <input type="range" id="jb" min="-3" max="3" step="0.1" value="-1.4">
+      <span class="dial__val" id="jbv">−1.4</span>
+    </div>
+  </div>
+
+  <div class="verdict">
+    <div class="verdict__bar"><div class="verdict__fill" id="jfill"></div></div>
+    <div class="verdict__text" id="jtext"></div>
+    <div class="verdict__sub" id="jsub"></div>
+  </div>
+
+  <div class="readout" id="jmath" hidden>
+    <div class="readout__line" id="jm1"></div>
+    <div class="readout__line" id="jm2"></div>
+  </div>
+</div>
+
+<div id="lab" class="panel" hidden>
+  <div class="field">
+    <canvas id="labcv" aria-label="Neyronun qərar sahəsi"></canvas>
+    <div class="axis"><span>x₁ →</span><span id="labhint"></span></div>
+  </div>
+
+  <div class="dialset" id="labdials" hidden>
+    <div class="dial dial--tight">
+      <label class="dial__name" for="lw1"><b>w₁</b></label>
+      <input type="range" id="lw1" min="-3" max="3" step="0.05" value="1">
+      <span class="dial__val" id="lw1v">1.00</span>
+    </div>
+    <div class="dial dial--tight">
+      <label class="dial__name" for="lw2"><b>w₂</b></label>
+      <input type="range" id="lw2" min="-3" max="3" step="0.05" value="0.6">
+      <span class="dial__val" id="lw2v">0.60</span>
+    </div>
+    <div class="dial dial--tight">
+      <label class="dial__name" for="lb"><b>b</b></label>
+      <input type="range" id="lb" min="-3" max="3" step="0.05" value="-0.3">
+      <span class="dial__val" id="lbv">−0.30</span>
+    </div>
+  </div>
+
+  <div class="dial" id="labhiddenrow" hidden>
+    <label class="dial__name" for="lh">Gizli neyron sayı</label>
+    <input type="range" id="lh" min="0" max="8" step="1" value="0">
+    <span class="dial__val" id="lhv">0</span>
+  </div>
+
+  <div class="btnrow" id="labbtns" hidden>
+    <button type="button" id="lstep">Bir addım at</button>
+    <button type="button" id="lrun" data-primary>Öyrət</button>
+    <button type="button" id="lreset">Sıfırla</button>
+  </div>
+
+  <div class="stats" id="labstats" hidden>
+    <div class="stat"><span class="stat__k">Addım</span><span class="stat__v" id="ls-step">0</span></div>
+    <div class="stat"><span class="stat__k">İtki</span><span class="stat__v" id="ls-loss">—</span></div>
+    <div class="stat"><span class="stat__k">Dəqiqlik</span><span class="stat__v" id="ls-acc">—</span></div>
+  </div>
+
+  <canvas class="spark" id="labspark" hidden aria-label="İtki əyrisi"></canvas>
+
+  <table class="ba" id="labba" hidden>
+    <thead><tr><th></th><th>əvvəl</th><th>sonra</th><th>fərq</th></tr></thead>
+    <tbody id="labbabody"></tbody>
+  </table>
+
+  <div id="labthumbwrap" hidden>
+    <p class="stat__k" style="margin:0 0 7px">Hər gizli neyron ayrılıqda nə görür</p>
+    <div class="thumbs" id="labthumbs"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ============================ utilities ============================ */
+const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
+const sigmoid = z => 1 / (1 + Math.exp(-z));
+const $ = id => document.getElementById(id);
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function gauss(rng, mean, sd) {
+  const u = Math.max(rng(), 1e-9), v = rng();
+  return mean + sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+const fmt = (n, d = 2) => (n < 0 ? "−" : "") + Math.abs(n).toFixed(d);
+
+/* ====================== the network, from scratch ====================== */
+/* Architecture 2 -> [h] -> 1. tanh hidden, sigmoid output, binary
+   cross-entropy loss, full-batch gradient descent with momentum.
+   h === 0 means a single neuron wired straight from the inputs. */
+
+function createNet(hidden, seed) {
+  const rng = mulberry32(seed);
+  const outSize = hidden > 0 ? hidden : 2;
+  const net = { hidden, W1: [], b1: [], W2: new Array(outSize), b2: 0,
+                vW1: [], vb1: [], vW2: new Array(outSize).fill(0), vb2: 0 };
+  for (let j = 0; j < hidden; j++) {
+    net.W1.push([rng() * 2 - 1, rng() * 2 - 1]);
+    net.b1.push(rng() * 0.4 - 0.2);
+    net.vW1.push([0, 0]); net.vb1.push(0);
+  }
+  for (let j = 0; j < outSize; j++) net.W2[j] = rng() * 2 - 1;
+  return net;
+}
+
+function forward(net, x0, x1) {
+  if (net.hidden === 0) {
+    return { p: sigmoid(net.W2[0] * x0 + net.W2[1] * x1 + net.b2), a: null };
+  }
+  const a = new Array(net.hidden);
+  for (let j = 0; j < net.hidden; j++) {
+    a[j] = Math.tanh(net.W1[j][0] * x0 + net.W1[j][1] * x1 + net.b1[j]);
+  }
+  let z = net.b2;
+  for (let j = 0; j < net.hidden; j++) z += net.W2[j] * a[j];
+  return { p: sigmoid(z), a };
+}
+
+function meanLoss(net, pts) {
+  if (!pts.length) return 0;
+  let loss = 0;
+  for (const pt of pts) {
+    const pc = clamp(forward(net, pt.x, pt.y).p, 1e-7, 1 - 1e-7);
+    loss += -(pt.label * Math.log(pc) + (1 - pt.label) * Math.log(1 - pc));
+  }
+  return loss / pts.length;
+}
+
+function trainStep(net, pts, lr, momentum) {
+  const N = pts.length;
+  if (N === 0) return 0;
+  const gW2 = new Array(net.W2.length).fill(0);
+  let gb2 = 0, loss = 0;
+  const gW1 = net.W1.map(() => [0, 0]);
+  const gb1 = net.b1.map(() => 0);
+
+  for (const pt of pts) {
+    const { p, a } = forward(net, pt.x, pt.y);
+    const pc = clamp(p, 1e-7, 1 - 1e-7);
+    loss += -(pt.label * Math.log(pc) + (1 - pt.label) * Math.log(1 - pc));
+
+    // sigmoid + binary cross-entropy collapses dL/dz to (p - y)
+    const dz = p - pt.label;
+    if (net.hidden === 0) {
+      gW2[0] += dz * pt.x; gW2[1] += dz * pt.y; gb2 += dz;
+    } else {
+      for (let j = 0; j < net.hidden; j++) gW2[j] += dz * a[j];
+      gb2 += dz;
+      for (let j = 0; j < net.hidden; j++) {
+        const dz1 = dz * net.W2[j] * (1 - a[j] * a[j]);   // tanh'(z) = 1 - tanh²
+        gW1[j][0] += dz1 * pt.x; gW1[j][1] += dz1 * pt.y; gb1[j] += dz1;
+      }
+    }
+  }
+
+  const s = 1 / N;
+  for (let j = 0; j < net.W2.length; j++) {
+    net.vW2[j] = momentum * net.vW2[j] - lr * gW2[j] * s;
+    net.W2[j] += net.vW2[j];
+  }
+  net.vb2 = momentum * net.vb2 - lr * gb2 * s;
+  net.b2 += net.vb2;
+  for (let j = 0; j < net.hidden; j++) {
+    for (let k = 0; k < 2; k++) {
+      net.vW1[j][k] = momentum * net.vW1[j][k] - lr * gW1[j][k] * s;
+      net.W1[j][k] += net.vW1[j][k];
+    }
+    net.vb1[j] = momentum * net.vb1[j] - lr * gb1[j] * s;
+    net.b1[j] += net.vb1[j];
+  }
+  return loss * s;
+}
+
+function accuracy(net, pts) {
+  if (!pts.length) return 0;
+  let ok = 0;
+  for (const pt of pts) if ((forward(net, pt.x, pt.y).p >= .5 ? 1 : 0) === pt.label) ok++;
+  return ok / pts.length;
+}
+
+/* ============================= datasets ============================= */
+const DATASETS = {
+  blobs(seed) {
+    const rng = mulberry32(seed), pts = [];
+    for (let i = 0; i < 45; i++) {
+      pts.push({ x: clamp(gauss(rng, -0.42, 0.24), -1, 1), y: clamp(gauss(rng, -0.38, 0.24), -1, 1), label: 0 });
+      pts.push({ x: clamp(gauss(rng,  0.42, 0.24), -1, 1), y: clamp(gauss(rng,  0.38, 0.24), -1, 1), label: 1 });
+    }
+    return pts;
+  },
+  circle(seed) {
+    const rng = mulberry32(seed), pts = [];
+    for (let i = 0; i < 50; i++) {
+      let r = rng() * 0.38, t = rng() * Math.PI * 2;
+      pts.push({ x: r * Math.cos(t), y: r * Math.sin(t), label: 1 });
+      r = 0.62 + rng() * 0.3; t = rng() * Math.PI * 2;
+      pts.push({ x: clamp(r * Math.cos(t), -1, 1), y: clamp(r * Math.sin(t), -1, 1), label: 0 });
+    }
+    return pts;
+  }
+};
+
+/* ======================= palette bridge + canvas ======================= */
+let PAL = null;
+function readPalette() {
+  const cs = getComputedStyle(document.documentElement);
+  const trip = n => cs.getPropertyValue(n).trim().split(/\s+/).map(Number);
+  PAL = {
+    a: trip("--class-a-rgb"), b: trip("--class-b-rgb"), grid: trip("--grid-rgb"),
+    surface: cs.getPropertyValue("--surface-2").trim(),
+    ink: cs.getPropertyValue("--ink").trim(),
+    signal: cs.getPropertyValue("--signal").trim(),
+    faint: cs.getPropertyValue("--faint").trim(),
+    rule: cs.getPropertyValue("--rule").trim(),
+    classA: cs.getPropertyValue("--class-a").trim(),
+    classB: cs.getPropertyValue("--class-b").trim()
+  };
+}
+readPalette();
+
+function fit(cv) {
+  const w = cv.clientWidth, h = cv.clientHeight;
+  if (!w || !h) return null;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w, h };
+}
+const toPx = (x, w) => (x + 1) / 2 * w;
+const toPy = (y, h) => (1 - y) / 2 * h;
+
+const GRID = 64;
+const fbuf = document.createElement("canvas");
+fbuf.width = fbuf.height = GRID;
+const fctx = fbuf.getContext("2d");
+const fimg = fctx.createImageData(GRID, GRID);
+
+function paintSurface(ctx, w, h, valueAt) {
+  const d = fimg.data;
+  for (let j = 0; j < GRID; j++) {
+    const y = 1 - (j + .5) / GRID * 2;
+    for (let i = 0; i < GRID; i++) {
+      const x = -1 + (i + .5) / GRID * 2;
+      const p = valueAt(x, y);
+      const rgb = p >= .5 ? PAL.a : PAL.b;
+      const k = (j * GRID + i) * 4;
+      d[k] = rgb[0]; d[k + 1] = rgb[1]; d[k + 2] = rgb[2];
+      d[k + 3] = Math.round((.10 + .46 * Math.abs(p - .5) * 2) * 255);
+    }
+  }
+  fctx.putImageData(fimg, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(fbuf, 0, 0, w, h);
+}
+
+function paintGrid(ctx, w, h) {
+  const [r, g, b] = PAL.grid;
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = `rgba(${r},${g},${b},.28)`;
+  ctx.beginPath();
+  for (let i = 1; i < 4; i++) {
+    const t = i / 4;
+    ctx.moveTo(Math.round(t * w) + .5, 0); ctx.lineTo(Math.round(t * w) + .5, h);
+    ctx.moveTo(0, Math.round(t * h) + .5); ctx.lineTo(w, Math.round(t * h) + .5);
+  }
+  ctx.stroke();
+  ctx.strokeStyle = `rgba(${r},${g},${b},.6)`;
+  ctx.beginPath();
+  ctx.moveTo(Math.round(w / 2) + .5, 0); ctx.lineTo(Math.round(w / 2) + .5, h);
+  ctx.moveTo(0, Math.round(h / 2) + .5); ctx.lineTo(w, Math.round(h / 2) + .5);
+  ctx.stroke();
+}
+
+function paintPoints(ctx, w, h, pts, net) {
+  for (const pt of pts) {
+    const wrong = net && (forward(net, pt.x, pt.y).p >= .5 ? 1 : 0) !== pt.label;
+    ctx.beginPath();
+    ctx.arc(toPx(pt.x, w), toPy(pt.y, h), wrong ? 5.5 : 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = pt.label === 1 ? PAL.classA : PAL.classB;
+    ctx.fill();
+    ctx.lineWidth = wrong ? 2.5 : 1.5;
+    ctx.strokeStyle = wrong ? PAL.ink : PAL.surface;
+    ctx.stroke();
+  }
+}
+
+function paintLine(ctx, w, h, w0, w1, b) {
+  let p, q;
+  if (Math.abs(w1) > Math.abs(w0)) {
+    p = [-1, (w0 - b) / w1]; q = [1, (-w0 - b) / w1];
+  } else if (Math.abs(w0) > 1e-6) {
+    p = [(w1 - b) / w0, -1]; q = [(-w1 - b) / w0, 1];
+  } else return;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, 0, w, h); ctx.clip();
+  ctx.beginPath();
+  ctx.moveTo(toPx(p[0], w), toPy(p[1], h));
+  ctx.lineTo(toPx(q[0], w), toPy(q[1], h));
+  ctx.lineWidth = 2; ctx.strokeStyle = PAL.ink; ctx.setLineDash([6, 4]);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* ============================ jacket widget ============================ */
+/* Cards 1–5 share this one instance; `level` decides how much is revealed. */
+
+const jacket = {
+  el: $("jacket"), level: 1,
+  x1: 6, x2: 4, w1: 2, w2: 1.2, b: -1.4,
+
+  z() { return this.w1 * (this.x1 / 10) + this.w2 * (this.x2 / 10) + (this.level >= 3 ? this.b : -1.4); },
+
+  setLevel(n) {
+    this.level = n;
+    $("jbrow").hidden = n < 3;
+    $("jmath").hidden = n < 2;
+    $("jwcap").textContent = n >= 2 ? "Çəkilər — nə qədər vacibdir" : "Mənim üçün nə qədər vacibdir";
+    $("jw1l").innerHTML = n >= 2 ? 'Soyuqluq <b>w₁</b>' : "Soyuqluq";
+    $("jw2l").innerHTML = n >= 2 ? 'Külək <b>w₂</b>' : "Külək";
+    this.update();
+  },
+
+  update() {
+    $("jx1v").textContent = this.x1.toFixed(1);
+    $("jx2v").textContent = this.x2.toFixed(1);
+    $("jw1v").textContent = fmt(this.w1, 1);
+    $("jw2v").textContent = fmt(this.w2, 1);
+    $("jbv").textContent  = fmt(this.b, 1);
+
+    const z = this.z(), y = sigmoid(z);
+    $("jfill").style.width = (y * 100).toFixed(1) + "%";
+    $("jfill").style.background = y >= .5 ? PAL.classA : PAL.classB;
+    const t = $("jtext");
+    t.textContent = y >= .5 ? "Gödəkçə geyin" : "Gödəkçə lazım deyil";
+    t.dataset.yes = y >= .5 ? "1" : "0";
+    $("jsub").textContent = "əminlik: " + (y * 100).toFixed(0) + "%";
+
+    if (this.level >= 2) {
+      const term = (wv, xv) => (wv < 0 ? "(" + fmt(wv, 1) + ")" : fmt(wv, 1)) + "×" + (xv / 10).toFixed(2);
+      const bpart = this.level >= 3
+        ? " + " + (this.b < 0 ? "(" + fmt(this.b, 1) + ")" : fmt(this.b, 1))
+        : "";
+      $("jm1").innerHTML = `z = ${term(this.w1, this.x1)} + ${term(this.w2, this.x2)}${bpart} = <b>${fmt(z)}</b>`;
+      $("jm2").innerHTML = this.level >= 4
+        ? `y = σ(${fmt(z)}) = <b>${fmt(y)}</b>`
+        : `cavab = <b>${fmt(y)}</b>`;
+    }
+    if (sigCard.active) sigCard.draw(z, y);
+  }
+};
+
+for (const [id, key, dec] of [["jx1","x1",1],["jx2","x2",1],["jw1","w1",1],["jw2","w2",1],["jb","b",1]]) {
+  $(id).addEventListener("input", e => { jacket[key] = parseFloat(e.target.value); jacket.update(); });
+}
+
+/* ---------------------- the sigmoid curve on card 4 ---------------------- */
+const sigCard = {
+  active: false,
+  draw(z, y) {
+    const f = fit($("sigcv"));
+    if (!f) return;
+    const { ctx, w, h } = f;
+    const pad = 16, zmax = 6;
+    const X = zv => pad + (zv + zmax) / (2 * zmax) * (w - pad * 2);
+    const Y = yv => h - pad - yv * (h - pad * 2);
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = PAL.rule; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad, Y(0.5)); ctx.lineTo(w - pad, Y(0.5));       // y = 0.5
+    ctx.moveTo(X(0), pad); ctx.lineTo(X(0), h - pad);            // z = 0
+    ctx.stroke();
+
+    ctx.beginPath();
+    for (let i = 0; i <= 120; i++) {
+      const zv = -zmax + (i / 120) * 2 * zmax;
+      i ? ctx.lineTo(X(zv), Y(sigmoid(zv))) : ctx.moveTo(X(zv), Y(sigmoid(zv)));
+    }
+    ctx.strokeStyle = PAL.signal; ctx.lineWidth = 2.5; ctx.lineJoin = "round";
+    ctx.stroke();
+
+    const cz = clamp(z, -zmax, zmax);
+    ctx.beginPath(); ctx.arc(X(cz), Y(y), 6, 0, Math.PI * 2);
+    ctx.fillStyle = y >= .5 ? PAL.classA : PAL.classB; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = PAL.surface; ctx.stroke();
+
+    ctx.fillStyle = PAL.faint;
+    ctx.font = '11px "IBM Plex Mono", monospace';
+    ctx.fillText("1", pad - 10, Y(1) + 4);
+    ctx.fillText("0", pad - 10, Y(0) + 4);
+    ctx.fillText("z = 0", X(0) + 5, h - 4);
+
+    $("sigout").innerHTML = `z = <b>${fmt(z)}</b> &nbsp;→&nbsp; σ(z) = <b>${fmt(y)}</b>`;
+  }
+};
+
+/* ============================== lab widget ============================== */
+/* Cards 6–11 share this one instance; `configure` sets which controls show. */
+
+const lab = {
+  el: $("lab"),
+  mode: null, net: null, pts: [], hidden: 0,
+  steps: 0, loss: null, history: [], training: false, raf: null,
+  prev: null, lr: 0.9,
+
+  configure(cfg) {
+    this.cfg = cfg;
+    $("labdials").hidden      = !cfg.sliders;
+    $("labhiddenrow").hidden  = !cfg.hiddenSlider;
+    $("labbtns").hidden       = !(cfg.stepBtn || cfg.runBtn);
+    $("lstep").hidden         = !cfg.stepBtn;
+    $("lrun").hidden          = !cfg.runBtn;
+    $("lreset").hidden        = !(cfg.stepBtn || cfg.runBtn);
+    $("labstats").hidden      = !cfg.stats;
+    $("labspark").hidden      = !cfg.spark;
+    $("labba").hidden         = !cfg.beforeAfter || !this.prev;
+    $("labthumbwrap").hidden  = !cfg.thumbs;
+    $("labhint").textContent  = cfg.hint || "";
+
+    if (cfg.mode !== this.mode) {
+      this.mode = cfg.mode;
+      this.stopTraining();
+      if (cfg.mode === "manual") {
+        this.pts = []; this.hidden = 0;
+        this.net = createNet(0, 3);
+        this.syncFromSliders();
+      } else {
+        this.pts = DATASETS[cfg.mode](cfg.mode === "blobs" ? 7 : 11);
+        this.hidden = 0;
+        $("lh").value = "0"; $("lhv").textContent = "0";
+        this.newNet();
+      }
+    }
+    this.render();
+  },
+
+  newNet() {
+    this.net = createNet(this.hidden, this.mode === "blobs" ? 949 : 988);
+    this.steps = 0; this.loss = meanLoss(this.net, this.pts); this.history = []; this.prev = null;
+    $("labbabody").innerHTML = "";
+    $("labba").hidden = true;
+  },
+
+  syncFromSliders() {
+    this.net.W2[0] = parseFloat($("lw1").value);
+    this.net.W2[1] = parseFloat($("lw2").value);
+    this.net.b2    = parseFloat($("lb").value);
+    $("lw1v").textContent = fmt(this.net.W2[0]);
+    $("lw2v").textContent = fmt(this.net.W2[1]);
+    $("lbv").textContent  = fmt(this.net.b2);
+  },
+
+  render() {
+    const f = fit($("labcv"));
+    if (f) {
+      const { ctx, w, h } = f;
+      ctx.fillStyle = PAL.surface; ctx.fillRect(0, 0, w, h);
+      paintSurface(ctx, w, h, (x, y) => forward(this.net, x, y).p);
+      paintGrid(ctx, w, h);
+      if (this.net.hidden === 0) paintLine(ctx, w, h, this.net.W2[0], this.net.W2[1], this.net.b2);
+      paintPoints(ctx, w, h, this.pts, this.cfg && this.cfg.markWrong ? this.net : null);
+    }
+    if (this.cfg && this.cfg.stats) {
+      $("ls-step").textContent = this.steps;
+      $("ls-loss").textContent = this.loss === null ? "—" : this.loss.toFixed(3);
+      const acc = accuracy(this.net, this.pts);
+      const av = $("ls-acc");
+      av.textContent = this.pts.length ? (acc * 100).toFixed(0) + "%" : "—";
+      av.dataset.tone = !this.pts.length ? "" : acc >= .9 ? "ok" : acc >= .7 ? "" : "bad";
+    }
+    if (this.cfg && this.cfg.spark) this.drawSpark();
+    if (this.cfg && this.cfg.thumbs) this.drawThumbs();
+    $("lrun").textContent = this.training ? "Dayan" : "Öyrət";
+  },
+
+  drawSpark() {
+    const f = fit($("labspark"));
+    if (!f) return;
+    const { ctx, w, h } = f;
+    ctx.clearRect(0, 0, w, h);
+    if (this.history.length < 2) {
+      ctx.fillStyle = PAL.faint;
+      ctx.font = '11px "IBM Plex Mono", monospace';
+      ctx.fillText("itki əyrisi — öyrətməyə başla", 2, h / 2);
+      return;
+    }
+    const max = Math.max(...this.history, .02);
+    ctx.beginPath();
+    this.history.forEach((v, i) => {
+      const x = i / (this.history.length - 1) * w;
+      const y = 3 + (1 - v / max) * (h - 6);
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    });
+    ctx.strokeStyle = PAL.signal; ctx.lineWidth = 2; ctx.lineJoin = "round";
+    ctx.stroke();
+  },
+
+  drawThumbs() {
+    const host = $("labthumbs");
+    if (this.net.hidden === 0) {
+      host.innerHTML = '<span class="thumbs__empty">Gizli neyron yoxdur — şəbəkə yalnız bir düz xətt çəkir.</span>';
+      return;
+    }
+    if (host.children.length !== this.net.hidden || !host.firstElementChild.classList.contains("thumb")) {
+      host.innerHTML = "";
+      for (let j = 0; j < this.net.hidden; j++) {
+        const box = document.createElement("div");
+        box.className = "thumb";
+        const cv = document.createElement("canvas");
+        cv.width = cv.height = 84;
+        box.append(cv, document.createElement("span"));
+        host.append(box);
+      }
+    }
+    const T = 28;
+    for (let j = 0; j < this.net.hidden; j++) {
+      const box = host.children[j];
+      const ctx = box.firstElementChild.getContext("2d");
+      const img = ctx.createImageData(T, T);
+      const d = img.data;
+      for (let r = 0; r < T; r++) {
+        const y = 1 - (r + .5) / T * 2;
+        for (let c = 0; c < T; c++) {
+          const x = -1 + (c + .5) / T * 2;
+          const a = Math.tanh(this.net.W1[j][0] * x + this.net.W1[j][1] * y + this.net.b1[j]);
+          const rgb = a >= 0 ? PAL.a : PAL.b;
+          const k = (r * T + c) * 4;
+          d[k] = rgb[0]; d[k + 1] = rgb[1]; d[k + 2] = rgb[2];
+          d[k + 3] = Math.round((.12 + .5 * Math.abs(a)) * 255);
+        }
+      }
+      const tmp = document.createElement("canvas");
+      tmp.width = tmp.height = T;
+      tmp.getContext("2d").putImageData(img, 0, 0);
+      ctx.clearRect(0, 0, 84, 84);
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(tmp, 0, 0, 84, 84);
+      box.lastElementChild.textContent = `n${j + 1} · ${fmt(this.net.W2[j], 1)}`;
+    }
+  },
+
+  oneStep() {
+    this.prev = { w1: this.net.W2[0], w2: this.net.W2[1], b: this.net.b2, loss: this.loss };
+    this.loss = trainStep(this.net, this.pts, this.lr, .9);
+    this.steps++;
+    this.history.push(this.loss);
+    if (this.history.length > 220) this.history.shift();
+    if (this.cfg.beforeAfter) { $("labba").hidden = false; this.drawBeforeAfter(); }
+    this.render();
+  },
+
+  drawBeforeAfter() {
+    const rows = [
+      ["w₁", this.prev.w1, this.net.W2[0], false],
+      ["w₂", this.prev.w2, this.net.W2[1], false],
+      ["b",  this.prev.b,  this.net.b2,    false],
+      ["itki", this.prev.loss, this.loss, true]
+    ];
+    $("labbabody").innerHTML = rows.map(([k, a, b, isLoss]) => {
+      const d = b - a;
+      const dir = Math.abs(d) < 1e-9 ? "" : (d < 0 ? "down" : "up");
+      const tone = isLoss ? ` data-dir="${dir}"` : "";
+      const dstr = (d >= 0 ? "+" : "−") + Math.abs(d).toFixed(4);
+      return `<tr><td>${k}</td><td>${fmt(a, 3)}</td><td>${fmt(b, 3)}</td><td class="delta"${tone}>${dstr}</td></tr>`;
+    }).join("");
+  },
+
+  frame() {
+    for (let i = 0; i < 12; i++) { this.loss = trainStep(this.net, this.pts, this.lr, .9); this.steps++; }
+    this.history.push(this.loss);
+    if (this.history.length > 220) this.history.shift();
+    this.render();
+    if (this.steps >= 6000) { this.stopTraining(); return; }
+    this.raf = requestAnimationFrame(() => this.frame());
+  },
+
+  startTraining() {
+    if (this.training || !this.pts.length) return;
+    if (this.steps >= 6000) { this.steps = 0; this.history = []; }
+    this.training = true;
+    this.raf = requestAnimationFrame(() => this.frame());
+    this.render();
+  },
+
+  stopTraining() {
+    this.training = false;
+    if (this.raf !== null) { cancelAnimationFrame(this.raf); this.raf = null; }
+    $("lrun").textContent = "Öyrət";
+  }
+};
+
+for (const id of ["lw1", "lw2", "lb"]) {
+  $(id).addEventListener("input", () => { lab.syncFromSliders(); lab.render(); });
+}
+$("lstep").addEventListener("click", () => lab.oneStep());
+$("lrun").addEventListener("click", () => lab.training ? (lab.stopTraining(), lab.render()) : lab.startTraining());
+$("lreset").addEventListener("click", () => { lab.stopTraining(); lab.newNet(); lab.render(); });
+$("lh").addEventListener("input", e => {
+  lab.stopTraining();
+  lab.hidden = parseInt(e.target.value, 10);
+  $("lhv").textContent = lab.hidden;
+  lab.newNet();
+  lab.render();
+});
+
+/* ================================ quizzes ================================ */
+document.querySelectorAll(".quiz").forEach(quiz => {
+  const out = quiz.querySelector(".quiz__out");
+  const verdict = quiz.querySelector(".quiz__verdict");
+  quiz.querySelectorAll("[data-opt]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (quiz.dataset.done === "1") return;
+      quiz.dataset.done = "1";
+      const right = btn.dataset.opt === quiz.dataset.answer;
+      quiz.querySelectorAll("[data-opt]").forEach(b => {
+        if (b.dataset.opt === quiz.dataset.answer) b.dataset.state = "right";
+        else if (b === btn) b.dataset.state = "wrong";
+        b.disabled = true;
+      });
+      verdict.textContent = right
+        ? "Düz tapdın."
+        : "Bu deyil — düzgün cavab yuxarıda yaşıl işarələnib.";
+      verdict.dataset.ok = right ? "1" : "0";
+      out.hidden = false;
+    });
+  });
+});
+
+/* ============================== navigation ============================== */
+const cards = [...document.querySelectorAll("[data-card]")];
+const TOTAL = cards.length;
+
+/* Which shared widget each card hosts, and how it is configured. */
+const LAB_CFG = {
+  6:  { mode: "manual", sliders: true, hint: "sərhəd = kəsikli xətt" },
+  7:  { mode: "blobs",  stats: true, markWrong: true, hint: "qalın həlqə = səhv təsnif" },
+  8:  { mode: "blobs",  stats: true, stepBtn: true, beforeAfter: true, markWrong: true, hint: "" },
+  9:  { mode: "blobs",  stats: true, runBtn: true, spark: true, hint: "" },
+  10: { mode: "circle", stats: true, runBtn: true, spark: true, hint: "" },
+  11: { mode: "circle", stats: true, runBtn: true, spark: true, hiddenSlider: true, thumbs: true, hint: "" }
+};
+const JACKET_LEVEL = { 1: 1, 2: 2, 3: 3, 4: 4, 5: 4 };
+
+let current = 1;
+
+function show(n) {
+  current = clamp(n, 1, TOTAL);
+  lab.stopTraining();
+
+  cards.forEach(c => { c.hidden = Number(c.dataset.card) !== current; });
+  const card = cards[current - 1];
+
+  sigCard.active = current === 4;
+
+  const jSlot = card.querySelector('[data-slot="jacket"]');
+  if (jSlot) { jSlot.append(jacket.el); jacket.el.hidden = false; jacket.setLevel(JACKET_LEVEL[current]); }
+  else jacket.el.hidden = true;
+
+  const lSlot = card.querySelector('[data-slot="lab"]');
+  if (lSlot) { lSlot.append(lab.el); lab.el.hidden = false; lab.configure(LAB_CFG[current]); }
+  else lab.el.hidden = true;
+
+  $("prev").disabled = current === 1;
+  $("next").disabled = current === TOTAL;
+  $("next").textContent = current === TOTAL ? "Son" : "İrəli →";
+  $("count").textContent = current + " / " + TOTAL;
+  [...$("dots").children].forEach((d, i) => {
+    d.dataset.on = i + 1 === current ? "now" : i + 1 < current ? "seen" : "";
+  });
+
+  history.replaceState(null, "", "#k" + current);
+  window.scrollTo({ top: 0, behavior: "instant" });
+}
+
+for (let i = 0; i < TOTAL; i++) {
+  const d = document.createElement("div");
+  d.className = "rail__dot";
+  $("dots").append(d);
+}
+$("prev").addEventListener("click", () => show(current - 1));
+$("next").addEventListener("click", () => show(current + 1));
+
+/* ================================= boot ================================= */
+function boot(saved) {
+  const fromHash = parseInt((location.hash.match(/^#k(\d+)$/) || [])[1], 10);
+  const start = fromHash || (saved && saved.card) || 1;
+  jacket.update();
+  show(start);
+}
+
+const darkMq = window.matchMedia("(prefers-color-scheme: dark)");
+const repaint = () => { readPalette(); jacket.update(); if (lab.cfg) lab.render(); };
+darkMq.addEventListener("change", repaint);
+new MutationObserver(repaint)
+  .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+new ResizeObserver(() => { if (lab.cfg) lab.render(); if (sigCard.active) jacket.update(); })
+  .observe(document.body);
+
+window.claude?.hot?.snapshot?.(() => ({ card: current }));
+if (window.claude?.hot?.ready) window.claude.hot.ready(boot);
+else boot(window.claude?.hot?.data ?? null);
+</script>
+</body>
+</html>
