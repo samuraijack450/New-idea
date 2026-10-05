@@ -78,7 +78,10 @@ class ClassifyTest(unittest.TestCase):
                      "Özel Tıbbi Tahlil Laboratuvarı", "Ege Gıda Analiz Laboratuvarı",
                      "Ege Protez Ortez Laboratuvarı", "Protez Saç Merkezi", "Optik Laboratuvarı",
                      "Zirkonyum Diş Kliniği", "Dt. Ali Zirkonyum Diş Polikliniği", "Kalabak Diş Polikliniği",
-                     "Ege Seramik Banyo"]:
+                     "Ege Seramik Banyo", "Smile Zirkonyum Dental Clinic", "Ege Zirkonyum Dental Center",
+                     "Zirkon Ağız Diş Sağlığı Merkezi", "Zirkonyum ADSM", "Porselen Dentist Ayşe Kaya",
+                     "Porselen Lamina Diş Merkezi", "Ege Ortoprotez", "Orto Protez Merkezi",
+                     "Protez Saçlar İzmir", "Göz Protezi Merkezi"]:
             self.assertFalse(lf.is_likely_lab(name), name)
 
 
@@ -194,12 +197,15 @@ class FakeClient:
         self.viewport = viewport
         self.viewport_requests = []
 
-    def search_text(self, text_query, rect=None):
+    def search_text(self, text_query, rect=None, sink=None):
         self.calls.append(rect)
         n = len(self.calls)
         if rect is None or self.always_capped:
-            return [make_place(f"{n}-{i}", lat=38.40 + i * 0.001, lng=27.10 + i * 0.001) for i in range(60)]
-        return [make_place(f"{n}-x"), make_place(f"{n}-y")]
+            places = [make_place(f"{n}-{i}", lat=38.40 + i * 0.001, lng=27.10 + i * 0.001) for i in range(60)]
+        else:
+            places = [make_place(f"{n}-x"), make_place(f"{n}-y")]
+        sink.extend(places)
+        return places
 
     def district_viewport(self, district):
         self.viewport_requests.append(district)
@@ -240,9 +246,11 @@ class SearchAreaTest(unittest.TestCase):
 
     def test_capped_outside_izmir_warns(self):
         class OutsideClient(FakeClient):
-            def search_text(self, text_query, rect=None):
+            def search_text(self, text_query, rect=None, sink=None):
                 self.calls.append(rect)
-                return [make_place(str(i), province="Manisa") for i in range(60)]
+                places = [make_place(str(i), province="Manisa") for i in range(60)]
+                sink.extend(places)
+                return places
 
         client = OutsideClient()
         err = io.StringIO()
@@ -250,6 +258,18 @@ class SearchAreaTest(unittest.TestCase):
             self.assertEqual(len(lf.search_area(client, "q", "Kınık")), 60)
         self.assertIn("xəbərdarlıq", err.getvalue())
         self.assertEqual(len(client.calls), 1)
+
+    def test_interrupted_split_keeps_fetched_results(self):
+        class StopClient(FakeClient):
+            def search_text(self, text_query, rect=None, sink=None):
+                if len(self.calls) == 3:
+                    raise lf.CallLimitReached("limit")
+                return super().search_text(text_query, rect, sink)
+
+        sink = []
+        with self.assertRaises(lf.CallLimitReached):
+            lf.search_area(StopClient(), "q", "Karşıyaka", sink=sink)
+        self.assertEqual(len(sink), 60 + 2 * 2)
 
     def test_bounding_box_and_clamp(self):
         box = lf.bounding_box([make_place("a", lat=38.0, lng=27.0), make_place("b", lat=38.4, lng=27.4)])
@@ -292,11 +312,13 @@ class DictClient:
         self.exc = exc
         self.request_count = 0
 
-    def search_text(self, text_query, rect=None):
+    def search_text(self, text_query, rect=None, sink=None):
         self.request_count += 1
         if text_query == self.fail_on:
             raise self.exc
-        return self.responses.get(text_query, [])
+        places = self.responses.get(text_query, [])
+        sink.extend(places)
+        return places
 
 
 class CollectAndRowsTest(unittest.TestCase):
@@ -405,11 +427,25 @@ class MainTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(files, ["res.csv", "res.xlsx"])
 
+    def test_failure_mid_first_query_keeps_fetched_pages(self):
+        session = FakeSession([
+            FakeResponse(200, {"places": [make_place("a"), make_place("b", name="Bornova Dental Lab")],
+                               "nextPageToken": "t"}),
+            FakeResponse(403, {"error": {"message": "billing disabled"}}),
+        ])
+        client = lf.PlacesClient("KEY", session=session, sleep=lambda s: None)
+        code, out, files = self.run_main(client)
+        self.assertEqual(code, 1)
+        self.assertEqual(files, ["res.csv", "res.xlsx"])
+        self.assertIn("Cəmi: 2 lab", out)
+        self.assertIn("API çağırışı: 2", out)
+
     def test_error_before_any_result(self):
         client = DictClient(fail_on="diş protez laboratuvarı Karşıyaka İzmir", exc=lf.PlacesError("403"))
-        code, _, files = self.run_main(client)
+        code, out, files = self.run_main(client)
         self.assertEqual(code, 1)
         self.assertEqual(files, [])
+        self.assertIn("API çağırışı: 1", out)
 
 
 class CliTest(unittest.TestCase):
@@ -436,6 +472,10 @@ class CliTest(unittest.TestCase):
     def test_bad_output_name(self):
         with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             lf.parse_args(["--output", "."])
+
+    def test_negative_max_calls(self):
+        with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            lf.parse_args(["--max-calls", "-5"])
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ Web axtarışı yalnız saytı olan yerləri tapır. Bu skript isə Maps-in öz 
 3. **APIs & Services → Library** bölməsində **Places API (New)**-i aktiv edin.
 4. **APIs & Services → Credentials → Create credentials → API key** ilə açar yaradın. Sonra açarı yalnız **Places API (New)** ilə məhdudlaşdırın (*API restrictions*).
 5. Pulu qorumaq üçün (tövsiyə olunur):
-   - **APIs & Services → Places API (New) → Quotas** bölməsində Text Search üçün gündəlik sorğu limiti qoyun (məs. 1000). Bu, limitdən sonra sorğuları həqiqətən dayandırır.
+   - **APIs & Services → Places API (New) → Quotas** bölməsində Text Search üçün gündəlik sorğu limiti qoyun (məs. 1000). Limit dolanda sorğular həqiqətən dayanır, amma limit hər gün yenilənir. Yəni bu, bir gündə qəfil böyük xərcin qarşısını alır, aylıq pulsuz həddə qalmağa isə zəmanət vermir.
    - **Billing → Budgets & alerts** bölməsində büdcə xəbərdarlığı qurun (məs. $5). Bu yalnız e-poçt göndərir, xərci dayandırmır.
 6. Açarı `GOOGLE_MAPS_API_KEY` adlı environment variable kimi verin. Açarı heç vaxt chat-ə yazmayın.
    - **Claude Code cloud session:** session başlığındakı environment menyusu → **Edit** → environment variables bölməsinə `GOOGLE_MAPS_API_KEY=...` əlavə edin. Yeni session onu görəcək.
@@ -21,6 +21,8 @@ Web axtarışı yalnız saytı olan yerləri tapır. Bu skript isə Maps-in öz 
    - **macOS / Linux:** `export GOOGLE_MAPS_API_KEY=...`
 
 ### İstifadə
+
+Əmrləri layihə qovluğunun içində işlədin (`cd New-idea`).
 
 ```bash
 pip install -r requirements.txt
@@ -31,7 +33,8 @@ python lab_finder.py --districts Karşıyaka Bornova Çiğli
 python lab_finder.py                                    # bütün İzmir
 ```
 
-macOS/Linux-da `python` əvəzinə `python3`, Windows-da `py` yazmaq lazım ola bilər (`py -m pip install -r requirements.txt`).
+- **Windows:** `python` işləməsə, `py` yazın (`py -m pip install -r requirements.txt`, `py lab_finder.py ...`).
+- **macOS / Linux:** `python3 -m pip install -r requirements.txt` və `python3 lab_finder.py ...`. `externally-managed-environment` xətası çıxarsa, əvvəlcə virtual mühit yaradın: `python3 -m venv .venv && source .venv/bin/activate`, sonra yenidən `pip install -r requirements.txt`.
 
 İlçə adlarını Türk hərfləri olmadan da yazmaq olar (`karsiyaka`, `cigli`).
 
@@ -42,14 +45,14 @@ macOS/Linux-da `python` əvəzinə `python3`, Windows-da `py` yazmaq lazım ola 
 
 Yenidən işə salmadan əvvəl köhnə Excel faylını bağlayın. Fayl açıq qalarsa, skript API-yə getmədən xəbərdarlıq edir. İş zamanı açılsa, nəticə tarixli adla (məs. `izmir_dis_protez_lab_20261005_143000.xlsx`) yazılır.
 
-Ctrl+C ilə dayandırsanız, o ana qədər tapılanlar yenə fayla yazılır.
+Ctrl+C ilə dayandırsanız, limit dolsa və ya API səhv versə, o ana qədər gələn bütün nəticələr (yarımçıq sorğununku da) yenə fayla yazılır.
 
 ### Nəticə
 
 `output/` qovluğunda iki fayl yaranır:
 
 - **`izmir_dis_protez_lab.xlsx`**, iki vərəqlə:
-  - **Lablar**: adına görə diş protez laboratoriyası olanlar. Adında *lab, laboratuvar, protez, teknisyen, zirkon, porselen, CAD/CAM* kimi sözlər olur. Klinikalar (*klinik, hekim, Dt., Dr.*), ortopedik protez-ortez, tibbi tahlil, optik, eşitmə cihazı kimi yerlər buraya düşmür.
+  - **Lablar**: adına görə diş protez laboratoriyası olanlar. Adında *lab, laboratuvar, protez, teknisyen, zirkon, porselen, CAD/CAM* kimi sözlər olur. Klinikalar (*klinik, clinic, hekim, ağız diş sağlığı, Dt., Dr.*), ortopedik protez-ortez, saç protezi, tibbi tahlil, optik, eşitmə cihazı kimi yerlər adətən buraya düşmür. Adında həm klinika, həm də *lab/laboratuvar* sözü olanlar Lablar-da qalır. Bu süzgəc yalnız ada baxır, ona görə hər iki vərəqə də göz gəzdirin.
   - **Yoxlanmalı**: axtarışda çıxan, amma adından diş protez labı olduğu bilinməyənlər (məs. diş klinikaları) və ünvanını gizlədən (yalnız xidmət ərazisi göstərən) bizneslər. Bunlar silinmir, gözdən keçirmək üçün ayrıca saxlanır.
 - **`izmir_dis_protez_lab.csv`**: eyni məlumat, `Növ` sütunu ilə (`Lab` / `Yoxlanmalı`). Türk dilli Excel CSV-ni tək sütunda aça bilər, ona görə Excel üçün `.xlsx` faylını açın.
 

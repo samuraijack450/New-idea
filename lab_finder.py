@@ -75,11 +75,14 @@ KEYWORDS = [
 LAB_RE = re.compile(r"\blab|labs?\b|laboratuv|protez|teknisyen|zirkon|porselen|cad ?/?cam")
 STRONG_LAB_RE = re.compile(r"\blab|labs?\b|laboratuv|teknisyen|cad ?/?cam")
 DENTAL_RE = re.compile(r"\bdis\b|dental|zirkon|porselen|ortodon|implant")
-CLINIC_RE = re.compile(r"klini|hekim|agiz ve dis|\bdt\b|\bdr\b|muayenehane")
+CLINIC_RE = re.compile(
+    r"klini|clinic|dentist|hekim|agiz (ve )?dis|\badsm\b|\bcent(er|re)\b|dis merkezi|saglik merkezi|"
+    r"\bdt\b|\bdr\b|muayenehane"
+)
 NON_DENTAL_RE = re.compile(
     r"tahlil|tibbi|\btip\b|biyokimya|patoloji|mikrobiyoloji|goruntuleme|rontgen|"
     r"veteriner|gida|analiz|kalibrasyon|cevre|hormon|genetik|"
-    r"ortez|ortopedi|optik|isitme|\bsac\b|medikal"
+    r"ortez|ortopedi|orto ?protez|goz protez|bacak|\bkol\b|optik|isitme|\bsac(lar|i)?\b|hair|medikal"
 )
 
 COLUMNS = [
@@ -161,8 +164,11 @@ class PlacesClient:
                 self.sleep(2 ** (attempt + 1))
         raise PlacesError(f"Google Places API cavab vermədi: {error}")
 
-    def search_text(self, text_query, rect=None):
-        """Bir mətn sorğusunun bütün səhifələrini (ən çox 60 nəticə) qaytarır."""
+    def search_text(self, text_query, rect=None, sink=None):
+        """Bir mətn sorğusunun bütün səhifələrini (ən çox 60 nəticə) qaytarır.
+
+        Hər səhifə gələn kimi `sink`-ə də əlavə olunur ki, sorğu yarıda kəsilsə, ödənilmiş nəticə itməsin.
+        """
         body = {
             "textQuery": text_query,
             "languageCode": "tr",
@@ -175,7 +181,10 @@ class PlacesClient:
         places = []
         for _ in range(MAX_PAGES):
             data = self._post(body)
-            places.extend(data.get("places", []))
+            page = data.get("places", [])
+            places.extend(page)
+            if sink is not None:
+                sink.extend(page)
             token = data.get("nextPageToken")
             if not token:
                 break
@@ -259,28 +268,30 @@ def split_rect(rect):
     ]
 
 
-def search_area(client, text_query, district=None, rect=None, depth=0):
+def search_area(client, text_query, district=None, rect=None, depth=0, sink=None):
     """Sorğu 60 nəticə limitinə çatırsa, ərazini 4 hissəyə bölüb hər birində yenidən axtarır.
 
     İlk bölünmədə ərazi ilçənin Google-dakı sərhədi ilə nəticələrin əhatəsinin birləşməsidir,
-    belə ki, ilçənin kənar hissələri də axtarılır.
+    belə ki, ilçənin kənar hissələri də axtarılır. Bütün nəticələr `sink`-ə yığılır və qaytarılır;
+    axtarış yarıda kəsilsə, o ana qədər gələnlər `sink`-də qalır.
     """
-    places = client.search_text(text_query, rect)
+    sink = [] if sink is None else sink
+    places = client.search_text(text_query, rect, sink=sink)
     if len(places) < PAGE_SIZE * MAX_PAGES:
-        return places
+        return sink
     if depth >= MAX_SPLIT_DEPTH:
         log(f"  xəbərdarlıq: '{text_query}' bölündükdən sonra da limitə çatır, bəzi nəticələr itə bilər")
-        return places
+        return sink
     area = rect
     if area is None:
         viewport = client.district_viewport(district) if district else None
         area = clamp_to_izmir(union_rect(viewport, bounding_box([p for p in places if is_in_izmir(p)])))
         if area is None:
             log(f"  xəbərdarlıq: '{text_query}' limitə çatdı, amma ərazi təyin olunmadı; bəzi nəticələr itə bilər")
-            return places
+            return sink
     for quadrant in split_rect(area):
-        places.extend(search_area(client, text_query, district, quadrant, depth + 1))
-    return places
+        search_area(client, text_query, district, quadrant, depth + 1, sink)
+    return sink
 
 
 def address_component(place, component_type):
@@ -328,18 +339,22 @@ def build_queries(districts, keywords):
 def collect(client, queries, records):
     """Bütün sorğuları işlədir, nəticələri place id üzrə `records`-a yığır (təkrarlar birləşir)."""
     for i, (district, keyword, text_query) in enumerate(queries, 1):
-        places = search_area(client, text_query, district)
-        new = 0
-        for place in places:
-            place_id = place.get("id")
-            if not place_id:
-                continue
-            rec = records.get(place_id)
-            if rec is None:
-                rec = records[place_id] = {"place": place, "keywords": {}, "query_district": district}
-                new += 1
-            rec["keywords"][keyword] = None  # dict: sıra qorunur, təkrar olmur
-        log(f"[{i}/{len(queries)}] {text_query}: {len(places)} nəticə, {new} yeni")
+        places = []
+        try:
+            search_area(client, text_query, district, sink=places)
+        finally:
+            # Sorğu yarıda kəsilsə də (limit, səhv, Ctrl+C), artıq gələn nəticələr saxlanır
+            new = 0
+            for place in places:
+                place_id = place.get("id")
+                if not place_id:
+                    continue
+                rec = records.get(place_id)
+                if rec is None:
+                    rec = records[place_id] = {"place": place, "keywords": {}, "query_district": district}
+                    new += 1
+                rec["keywords"][keyword] = None  # dict: sıra qorunur, təkrar olmur
+            log(f"[{i}/{len(queries)}] {text_query}: {len(places)} nəticə, {new} yeni")
     return records
 
 
@@ -492,6 +507,8 @@ def parse_args(argv):
     parser.add_argument("--dry-run", action="store_true",
                         help="API-yə getmədən sorğuları və təxmini çağırış sayını göstər")
     args = parser.parse_args(argv)
+    if args.max_calls < 0:
+        parser.error("--max-calls mənfi ola bilməz")
     if Path(args.output).name in ("", ".", ".."):
         parser.error("--output fayl adı olmalıdır, məs. output/izmir")
     return args
@@ -532,6 +549,7 @@ def main(argv=None):
     except (PlacesError, KeyboardInterrupt) as exc:
         log(f"\n{str(exc) or 'Dayandırıldı (Ctrl+C).'}")
         if not records:
+            print(f"API çağırışı: {client.request_count}. Heç nə tapılmadı, fayl yazılmadı.")
             return 1
         log("Axtarış yarımçıq qaldı, indiyə qədər tapılanlar yazılır.")
         exit_code = 1
