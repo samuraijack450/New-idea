@@ -20,6 +20,7 @@ from pathlib import Path
 
 import requests
 from openpyxl import Workbook
+from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 from openpyxl.styles import Font
 
 SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
@@ -38,13 +39,17 @@ FIELD_MASK = ",".join([
     "places.businessStatus",
     "places.primaryType",
     "places.primaryTypeDisplayName",
+    "places.pureServiceAreaBusiness",
     "nextPageToken",
 ])
+# İlçənin sərhədini öyrənmək üçün (yalnız sorğu limitə çatanda, ucuz Pro tarifi)
+VIEWPORT_FIELD_MASK = "places.id,places.types,places.viewport"
 PAGE_SIZE = 20
 MAX_PAGES = 3  # Google bir sorğu üçün ən çox 60 nəticə qaytarır
 MAX_SPLIT_DEPTH = 2  # limitə çatan sorğu ərazisi neçə dəfə 4 hissəyə bölünə bilər
 MAX_RETRIES = 4
 RETRY_STATUSES = {429, 500, 502, 503, 504}
+DEFAULT_MAX_CALLS = 900  # Enterprise tarifinin aylıq 1000 pulsuz çağırışından aşağı
 
 # İzmir vilayətinin təxmini sərhədləri (bölünən ərazilər bundan kənara çıxmır)
 IZMIR_BOUNDS = {"low": (37.70, 26.10), "high": (39.50, 28.55)}
@@ -57,20 +62,24 @@ IZMIR_DISTRICTS = [
     "Ödemiş", "Seferihisar", "Selçuk", "Tire", "Torbalı", "Urla",
 ]
 
+# "protez laboratuvarı" yoxdur: o, ortopedik (protez-ortez) labları da gətirir
 KEYWORDS = [
     "diş protez laboratuvarı",
     "dental laboratuvar",
     "diş laboratuvarı",
-    "protez laboratuvarı",
     "diş teknisyeni",
 ]
 
-# Adına görə "lab" sayılan yerlər; qalanları "Yoxlanmalı" vərəqinə düşür
-LAB_RE = re.compile(r"lab|protez|teknisyen|zirkon|seramik|porselen|cad ?/?cam")
-DENTAL_RE = re.compile(r"\bdis\b|dental|protez|zirkon|seramik|porselen|ortodon|implant")
-OTHER_LAB_RE = re.compile(
-    r"tahlil|tibbi|biyokimya|patoloji|mikrobiyoloji|goruntuleme|rontgen|"
-    r"veteriner|gida|analiz|kalibrasyon|cevre|hormon|genetik"
+# Adına görə "lab" sayılan yerlər; qalanları "Yoxlanmalı" vərəqinə düşür.
+# Bütün regex-lər normalize() olunmuş (ASCII, kiçik hərf) ada tətbiq olunur.
+LAB_RE = re.compile(r"\blab|labs?\b|laboratuv|protez|teknisyen|zirkon|porselen|cad ?/?cam")
+STRONG_LAB_RE = re.compile(r"\blab|labs?\b|laboratuv|teknisyen|cad ?/?cam")
+DENTAL_RE = re.compile(r"\bdis\b|dental|zirkon|porselen|ortodon|implant")
+CLINIC_RE = re.compile(r"klini|hekim|agiz ve dis|\bdt\b|\bdr\b|muayenehane")
+NON_DENTAL_RE = re.compile(
+    r"tahlil|tibbi|\btip\b|biyokimya|patoloji|mikrobiyoloji|goruntuleme|rontgen|"
+    r"veteriner|gida|analiz|kalibrasyon|cevre|hormon|genetik|"
+    r"ortez|ortopedi|optik|isitme|\bsac\b|medikal"
 )
 
 COLUMNS = [
@@ -97,6 +106,10 @@ class PlacesError(RuntimeError):
     pass
 
 
+class CallLimitReached(PlacesError):
+    pass
+
+
 def log(message):
     print(message, file=sys.stderr, flush=True)
 
@@ -109,20 +122,27 @@ def normalize(text):
 
 
 class PlacesClient:
-    def __init__(self, api_key, session=None, sleep=time.sleep):
+    def __init__(self, api_key, session=None, sleep=time.sleep, max_calls=None):
         self.api_key = api_key
         self.session = session or requests.Session()
         self.sleep = sleep
+        self.max_calls = max_calls
         self.request_count = 0
+        self._viewports = {}
 
-    def _post(self, body):
+    def _post(self, body, field_mask=FIELD_MASK):
         headers = {
             "Content-Type": "application/json",
             "X-Goog-Api-Key": self.api_key,
-            "X-Goog-FieldMask": FIELD_MASK,
+            "X-Goog-FieldMask": field_mask,
         }
         error = ""
         for attempt in range(MAX_RETRIES + 1):
+            if self.max_calls is not None and self.request_count >= self.max_calls:
+                raise CallLimitReached(
+                    f"API çağırış limiti ({self.max_calls}) doldu. Daha çox lazımdırsa, "
+                    "--max-calls ilə artırın (aylıq pulsuz limiti nəzərə alın)."
+                )
             self.request_count += 1
             try:
                 resp = self.session.post(SEARCH_URL, json=body, headers=headers, timeout=30)
@@ -130,7 +150,10 @@ class PlacesClient:
                 error = str(exc)
             else:
                 if resp.status_code == 200:
-                    return resp.json()
+                    try:
+                        return resp.json()
+                    except ValueError:
+                        raise PlacesError("Google Places API-dən oxunmayan cavab gəldi") from None
                 error = _error_message(resp)
                 if resp.status_code not in RETRY_STATUSES:
                     raise PlacesError(f"Google Places API səhvi ({resp.status_code}): {error}")
@@ -145,6 +168,7 @@ class PlacesClient:
             "languageCode": "tr",
             "regionCode": "TR",
             "pageSize": PAGE_SIZE,
+            "includePureServiceAreaBusinesses": True,
         }
         if rect:
             body["locationRestriction"] = {"rectangle": rect}
@@ -157,6 +181,15 @@ class PlacesClient:
                 break
             body = {**body, "pageToken": token}
         return places
+
+    def district_viewport(self, district):
+        """İlçənin Google-dakı sərhəd düzbucaqlısı (tapılmasa None). Hər ilçə üçün bir dəfə soruşulur."""
+        if district not in self._viewports:
+            body = {"textQuery": f"{district}, İzmir", "languageCode": "tr", "regionCode": "TR", "pageSize": 5}
+            places = [p for p in self._post(body, VIEWPORT_FIELD_MASK).get("places", []) if p.get("viewport")]
+            areas = [p for p in places if "administrative_area_level_2" in p.get("types", [])]
+            self._viewports[district] = areas[0]["viewport"] if areas else None
+        return self._viewports[district]
 
 
 def _error_message(resp):
@@ -174,7 +207,7 @@ def _rect(low_lat, low_lng, high_lat, high_lng):
 
 
 def bounding_box(places, margin=0.25, min_pad=0.01):
-    """Nəticələri əhatə edən, hər tərəfdən genişləndirilmiş və İzmir sərhədinə kəsilmiş düzbucaqlı."""
+    """Nəticələri əhatə edən, hər tərəfdən genişləndirilmiş düzbucaqlı."""
     coords = [
         (p["location"]["latitude"], p["location"]["longitude"])
         for p in places
@@ -185,15 +218,33 @@ def bounding_box(places, margin=0.25, min_pad=0.01):
     lats, lngs = zip(*coords)
     pad_lat = max((max(lats) - min(lats)) * margin, min_pad)
     pad_lng = max((max(lngs) - min(lngs)) * margin, min_pad)
-    (bound_low_lat, bound_low_lng), (bound_high_lat, bound_high_lng) = (
-        IZMIR_BOUNDS["low"], IZMIR_BOUNDS["high"],
-    )
+    return _rect(min(lats) - pad_lat, min(lngs) - pad_lng, max(lats) + pad_lat, max(lngs) + pad_lng)
+
+
+def union_rect(*rects):
+    rects = [r for r in rects if r]
+    if not rects:
+        return None
     return _rect(
-        max(min(lats) - pad_lat, bound_low_lat),
-        max(min(lngs) - pad_lng, bound_low_lng),
-        min(max(lats) + pad_lat, bound_high_lat),
-        min(max(lngs) + pad_lng, bound_high_lng),
+        min(r["low"]["latitude"] for r in rects),
+        min(r["low"]["longitude"] for r in rects),
+        max(r["high"]["latitude"] for r in rects),
+        max(r["high"]["longitude"] for r in rects),
     )
+
+
+def clamp_to_izmir(rect):
+    """Düzbucaqlını İzmir sərhədinə kəsir; kəsişmə yoxdursa None."""
+    if not rect:
+        return None
+    (bound_low_lat, bound_low_lng), (bound_high_lat, bound_high_lng) = IZMIR_BOUNDS["low"], IZMIR_BOUNDS["high"]
+    low_lat = max(rect["low"]["latitude"], bound_low_lat)
+    low_lng = max(rect["low"]["longitude"], bound_low_lng)
+    high_lat = min(rect["high"]["latitude"], bound_high_lat)
+    high_lng = min(rect["high"]["longitude"], bound_high_lng)
+    if low_lat >= high_lat or low_lng >= high_lng:
+        return None
+    return _rect(low_lat, low_lng, high_lat, high_lng)
 
 
 def split_rect(rect):
@@ -208,19 +259,27 @@ def split_rect(rect):
     ]
 
 
-def search_area(client, text_query, rect=None, depth=0):
-    """Sorğu 60 nəticə limitinə çatırsa, ərazini 4 hissəyə bölüb hər birində yenidən axtarır."""
+def search_area(client, text_query, district=None, rect=None, depth=0):
+    """Sorğu 60 nəticə limitinə çatırsa, ərazini 4 hissəyə bölüb hər birində yenidən axtarır.
+
+    İlk bölünmədə ərazi ilçənin Google-dakı sərhədi ilə nəticələrin əhatəsinin birləşməsidir,
+    belə ki, ilçənin kənar hissələri də axtarılır.
+    """
     places = client.search_text(text_query, rect)
     if len(places) < PAGE_SIZE * MAX_PAGES:
         return places
     if depth >= MAX_SPLIT_DEPTH:
         log(f"  xəbərdarlıq: '{text_query}' bölündükdən sonra da limitə çatır, bəzi nəticələr itə bilər")
         return places
-    area = rect or bounding_box([p for p in places if is_in_izmir(p)])
+    area = rect
     if area is None:
-        return places
+        viewport = client.district_viewport(district) if district else None
+        area = clamp_to_izmir(union_rect(viewport, bounding_box([p for p in places if is_in_izmir(p)])))
+        if area is None:
+            log(f"  xəbərdarlıq: '{text_query}' limitə çatdı, amma ərazi təyin olunmadı; bəzi nəticələr itə bilər")
+            return places
     for quadrant in split_rect(area):
-        places.extend(search_area(client, text_query, quadrant, depth + 1))
+        places.extend(search_area(client, text_query, district, quadrant, depth + 1))
     return places
 
 
@@ -238,6 +297,11 @@ def is_in_izmir(place):
     return "izmir" in normalize(place.get("formattedAddress", ""))
 
 
+def is_hidden_address(place):
+    """Ünvanını gizlədən (yalnız xidmət ərazisi göstərən) biznes."""
+    return bool(place.get("pureServiceAreaBusiness")) and not place.get("formattedAddress")
+
+
 def district_of(place, fallback):
     district = address_component(place, "administrative_area_level_2")
     if district:
@@ -250,7 +314,11 @@ def is_likely_lab(name):
     n = normalize(name)
     if not LAB_RE.search(n):
         return False
-    return not (OTHER_LAB_RE.search(n) and not DENTAL_RE.search(n))
+    if NON_DENTAL_RE.search(n) and not DENTAL_RE.search(n):
+        return False  # tibbi/ortopedik/eşitmə və s. laboratoriyalar
+    if CLINIC_RE.search(n) and not STRONG_LAB_RE.search(n):
+        return False  # "Zirkonyum Diş Kliniği" kimi klinikalar
+    return True
 
 
 def build_queries(districts, keywords):
@@ -260,7 +328,7 @@ def build_queries(districts, keywords):
 def collect(client, queries, records):
     """Bütün sorğuları işlədir, nəticələri place id üzrə `records`-a yığır (təkrarlar birləşir)."""
     for i, (district, keyword, text_query) in enumerate(queries, 1):
-        places = search_area(client, text_query)
+        places = search_area(client, text_query, district)
         new = 0
         for place in places:
             place_id = place.get("id")
@@ -281,12 +349,18 @@ def build_rows(records):
     for rec in records.values():
         place = rec["place"]
         status = place.get("businessStatus")
+        hidden = is_hidden_address(place)
         if status == "CLOSED_PERMANENTLY":
             skipped["closed"] += 1
             continue
-        if not is_in_izmir(place):
+        if not hidden and not is_in_izmir(place):
             skipped["outside"] += 1
             continue
+        notes = []
+        if status == "CLOSED_TEMPORARILY":
+            notes.append("Müvəqqəti bağlı")
+        if hidden:
+            notes.append("Ünvan gizlədilib (xidmət ərazisi)")
         location = place.get("location", {})
         row = {
             "name": place.get("displayName", {}).get("text", ""),
@@ -298,12 +372,13 @@ def build_rows(records):
             "reviews": place.get("userRatingCount", ""),
             "maps_url": place.get("googleMapsUri", ""),
             "category": place.get("primaryTypeDisplayName", {}).get("text") or place.get("primaryType", ""),
-            "note": "Müvəqqəti bağlı" if status == "CLOSED_TEMPORARILY" else "",
+            "note": "; ".join(notes),
             "lat": location.get("latitude", ""),
             "lng": location.get("longitude", ""),
             "keywords": ", ".join(rec["keywords"]),
         }
-        (labs if is_likely_lab(row["name"]) else review).append(row)
+        # Ünvanı gizli olanın İzmirdə olduğu yoxlana bilmir, ona görə həmişə "Yoxlanmalı"
+        (labs if is_likely_lab(row["name"]) and not hidden else review).append(row)
     sort_key = lambda r: (normalize(r["district"]), normalize(r["name"]))  # noqa: E731
     labs.sort(key=sort_key)
     review.sort(key=sort_key)
@@ -319,6 +394,10 @@ def write_csv(path, labs, review):
                 writer.writerow([kind] + [row[key] for key, _ in COLUMNS])
 
 
+def _xlsx_value(value):
+    return ILLEGAL_CHARACTERS_RE.sub("", value) if isinstance(value, str) else value
+
+
 def write_xlsx(path, labs, review):
     wb = Workbook()
     for index, (title, rows) in enumerate((("Lablar", labs), ("Yoxlanmalı", review))):
@@ -328,7 +407,7 @@ def write_xlsx(path, labs, review):
         for cell in ws[1]:
             cell.font = Font(bold=True)
         for row in rows:
-            ws.append([row[key] for key, _ in COLUMNS])
+            ws.append([_xlsx_value(row[key]) for key, _ in COLUMNS])
         for col, (key, _) in enumerate(COLUMNS, 1):
             if key in LINK_FIELDS:
                 for r in range(2, ws.max_row + 1):
@@ -337,12 +416,52 @@ def write_xlsx(path, labs, review):
                         cell.hyperlink = cell.value
                         cell.style = "Hyperlink"
         widths = {"name": 40, "district": 14, "address": 60, "phone": 18, "website": 35,
-                  "maps_url": 35, "category": 22, "keywords": 40}
+                  "maps_url": 35, "category": 22, "note": 18, "keywords": 40}
         for col, (key, _) in enumerate(COLUMNS, 1):
             ws.column_dimensions[ws.cell(row=1, column=col).column_letter].width = widths.get(key, 12)
         ws.freeze_panes = "A2"
         ws.auto_filter.ref = ws.dimensions
     wb.save(path)
+
+
+def output_paths(base):
+    """'output/izmir' -> output/izmir.csv, output/izmir.xlsx (adda nöqtə olsa da kəsilmir)."""
+    if base.suffix.lower() in (".csv", ".xlsx"):
+        base = base.with_suffix("")
+    return base.with_name(base.name + ".csv"), base.with_name(base.name + ".xlsx")
+
+
+def check_writable(paths):
+    """API-yə pul xərcləmədən əvvəl fayllara yazmaq mümkün olduğunu yoxlayır. Problem varsa mətnini qaytarır."""
+    for path in paths:
+        existed = path.exists()
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            open(path, "a").close()
+        except OSError as exc:
+            return f"{path} faylına yazmaq olmur ({exc}). Fayl Excel-də açıqdırsa, bağlayın."
+        if not existed:
+            path.unlink()
+    return None
+
+
+def save_outputs(base, labs, review):
+    """CSV və Excel yazır. Fayl tutulubsa, tarixli adla yazır ki, nəticə itməsin."""
+    saved = []
+    for path, writer in zip(output_paths(base), (write_csv, write_xlsx)):
+        try:
+            writer(path, labs, review)
+        except OSError as exc:
+            fallback = path.with_name(path.stem + time.strftime("_%Y%m%d_%H%M%S") + path.suffix)
+            log(f"{path} yazıla bilmədi ({exc}), əvəzinə {fallback} yazılır")
+            try:
+                writer(fallback, labs, review)
+            except OSError as exc2:
+                log(f"{fallback} də yazıla bilmədi: {exc2}")
+                continue
+            path = fallback
+        saved.append(path)
+    return saved
 
 
 def resolve_districts(names):
@@ -354,7 +473,7 @@ def resolve_districts(names):
         raise SystemExit(
             f"Naməlum ilçə: {', '.join(unknown)}\nMövcud ilçələr: {', '.join(IZMIR_DISTRICTS)}"
         )
-    return [by_norm[normalize(n)] for n in names]
+    return list(dict.fromkeys(by_norm[normalize(n)] for n in names))
 
 
 def parse_args(argv):
@@ -367,46 +486,60 @@ def parse_args(argv):
                         help="açar sözlər (default: " + "; ".join(KEYWORDS) + ")")
     parser.add_argument("--output", default="output/izmir_dis_protez_lab",
                         help="çıxış faylının adı, uzantısız (default: %(default)s)")
+    parser.add_argument("--max-calls", type=int, default=DEFAULT_MAX_CALLS, metavar="N",
+                        help="ən çox bu qədər API çağırışı et, sonra dayanıb tapılanları yaz "
+                             "(default: %(default)s; 0 = limitsiz)")
     parser.add_argument("--dry-run", action="store_true",
-                        help="API-yə getmədən sorğuları və təxmini sorğu sayını göstər")
-    return parser.parse_args(argv)
+                        help="API-yə getmədən sorğuları və təxmini çağırış sayını göstər")
+    args = parser.parse_args(argv)
+    if Path(args.output).name in ("", ".", ".."):
+        parser.error("--output fayl adı olmalıdır, məs. output/izmir")
+    return args
 
 
 def main(argv=None):
     args = parse_args(argv)
     districts = resolve_districts(args.districts)
-    queries = build_queries(districts, args.keywords or KEYWORDS)
+    keywords = list(dict.fromkeys(args.keywords or KEYWORDS))
+    queries = build_queries(districts, keywords)
 
     if args.dry_run:
         for _, _, text_query in queries:
             print(text_query)
-        print(f"\n{len(queries)} sorğu, təxminən {len(queries)}–{len(queries) * MAX_PAGES} API çağırışı "
-              "(sıx ilçələrin bölünməsi əlavə çağırış edə bilər)")
+        n = len(queries)
+        worst = n * MAX_PAGES * sum(4 ** d for d in range(MAX_SPLIT_DEPTH + 1)) + len(districts)
+        print(f"\n{n} sorğu. Adətən {n}–{n * MAX_PAGES} API çağırışı; sıx ilçələrdə ərazi bölündükcə "
+              f"artır (ən pis halda ~{worst}).")
+        print(f"--max-calls limiti: {args.max_calls or 'limitsiz'}")
         return 0
 
-    api_key = os.environ.get("GOOGLE_MAPS_API_KEY")
+    api_key = os.environ.get("GOOGLE_MAPS_API_KEY", "").strip()
     if not api_key:
         log("GOOGLE_MAPS_API_KEY tapılmadı. Açarı environment variable kimi əlavə edin (README-yə baxın).")
         return 1
 
-    client = PlacesClient(api_key)
+    base = Path(args.output)
+    problem = check_writable(output_paths(base))
+    if problem:
+        log(problem)
+        return 1
+
+    client = PlacesClient(api_key, max_calls=args.max_calls or None)
     records = {}
     exit_code = 0
     try:
         collect(client, queries, records)
-    except PlacesError as exc:
-        log(f"\n{exc}")
+    except (PlacesError, KeyboardInterrupt) as exc:
+        log(f"\n{str(exc) or 'Dayandırıldı (Ctrl+C).'}")
         if not records:
             return 1
         log("Axtarış yarımçıq qaldı, indiyə qədər tapılanlar yazılır.")
         exit_code = 1
 
     labs, review, skipped = build_rows(records)
-    out = Path(args.output)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    xlsx_path, csv_path = out.with_suffix(".xlsx"), out.with_suffix(".csv")
-    write_xlsx(xlsx_path, labs, review)
-    write_csv(csv_path, labs, review)
+    saved = save_outputs(base, labs, review)
+    if not saved:
+        exit_code = 1
 
     counts = {}
     for kind, rows in (("lab", labs), ("review", review)):
@@ -418,7 +551,7 @@ def main(argv=None):
     print(f"\nCəmi: {len(labs)} lab, {len(review)} yoxlanmalı. "
           f"Atılan: {skipped['closed']} bağlı, {skipped['outside']} İzmirdən kənar.")
     print(f"API çağırışı: {client.request_count}")
-    print(f"Fayllar: {xlsx_path}, {csv_path}")
+    print(f"Fayllar: {', '.join(str(p) for p in saved) or 'yazıla bilmədi'}")
     return exit_code
 
 
